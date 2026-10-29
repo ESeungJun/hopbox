@@ -70,10 +70,10 @@ Requires macOS 13 or later. No permissions are needed: the global shortcut doesn
 
 ### Windows
 
-| PC | Installer | Portable |
-|---|---|---|
-| Most PCs (Intel, AMD) | [`Hopbox-Windows-x64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe) | [`Hopbox-Windows-x64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-portable.exe) |
-| ARM PCs (Snapdragon and others) | [`Hopbox-Windows-arm64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe) | [`Hopbox-Windows-arm64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-portable.exe) |
+| PC | Installer |
+|---|---|
+| Most PCs (Intel, AMD) | [`Hopbox-Windows-x64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe) |
+| ARM PCs (Snapdragon and others) | [`Hopbox-Windows-arm64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe) |
 
 The installer installs for your account only, without admin rights, and puts a box icon in the notification area.
 The app isn't code-signed yet, so SmartScreen may warn you on first launch: click **More info → Run anyway**.

@@ -73,7 +73,6 @@ jobs:
           foreach ($arch in 'x64', 'arm64') {
             & $iscc "/DArch=$arch" "/DSource=$PWD\out\$arch" "/DAppVersion=$version" "/DOutput=$PWD\dist" windows/installer/hopbox.iss
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            Copy-Item "out/$arch/Hopbox.exe" "dist/Hopbox-Windows-$arch-portable.exe"
           }
           Get-ChildItem dist | Format-Table Name, Length
 

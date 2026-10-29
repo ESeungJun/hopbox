@@ -70,10 +70,10 @@ macOS 13 이상에서 동작합니다. 따로 허용할 권한은 없습니다. 
 
 ### 윈도우
 
-| PC | 설치 파일 | 설치 없이 쓰기 |
-|---|---|---|
-| 대부분의 PC (인텔·AMD) | [`Hopbox-Windows-x64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe) | [`Hopbox-Windows-x64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-portable.exe) |
-| ARM PC (Snapdragon 등) | [`Hopbox-Windows-arm64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe) | [`Hopbox-Windows-arm64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-portable.exe) |
+| PC | 설치 파일 |
+|---|---|
+| 대부분의 PC (인텔·AMD) | [`Hopbox-Windows-x64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe) |
+| ARM PC (Snapdragon 등) | [`Hopbox-Windows-arm64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe) |
 
 설치 파일을 실행하면 관리자 권한 없이 내 계정에만 설치됩니다. 설치가 끝나면 알림 영역에 상자 아이콘이 생깁니다.
 아직 코드 서명을 하지 않아서 처음 실행할 때 SmartScreen 경고가 뜰 수 있습니다. **추가 정보 → 실행** 을 누르면 됩니다.
