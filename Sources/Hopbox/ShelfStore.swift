@@ -123,6 +123,7 @@ final class ShelfStore: ObservableObject {
     /// 다만 서식 있는 텍스트(rtf)가 함께 있으면 엑셀·Pages 처럼 글을 복사한 경우라 텍스트로 담는다.
     @discardableResult
     func add(from pasteboard: NSPasteboard) -> Int {
+        Log.types("담기", pasteboard)
         let types = pasteboard.types ?? []
         if types.contains(Self.concealedType) {
             showToast("비밀번호처럼 숨겨진 값은 담지 않아요")
@@ -243,6 +244,7 @@ final class ShelfStore: ObservableObject {
         for promise in promises {
             group.enter()
             promise.receivePromisedFiles(atDestination: incoming, options: [:], operationQueue: Self.promiseQueue) { url, error in
+                if let error { Log.transfer.error("파일 약속 실패: \(error.localizedDescription, privacy: .public)") }
                 DispatchQueue.main.async {
                     if error == nil { received.append(url) }
                     group.leave()

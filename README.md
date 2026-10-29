@@ -44,16 +44,37 @@ Both automatic options, launch at login and the shortcut itself can be changed f
 
 ## Install
 
-HOPBOX is built from source. You only need the Xcode Command Line Tools (`xcode-select --install`), not Xcode itself.
+### Download
+
+Grab the file for your Mac from [Releases](https://github.com/ESeungJun/hopbox/releases/latest).
+
+| Mac | File |
+|---|---|
+| Apple silicon (M1 and later) | `Hopbox-<version>-macOS-apple-silicon.zip` |
+| Intel | `Hopbox-<version>-macOS-intel.zip` |
+
+You can check which one you have under  menu → About This Mac ("Chip" or "Processor").
+
+1. Unzip it and move `택배상자.app` to your Applications folder.
+2. The first launch shows an "unidentified developer" warning, because the app isn't notarized by Apple.
+   Open System Settings → Privacy & Security and click **Open Anyway** at the bottom.
+   Or, from Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/택배상자.app
+```
+
+Requires macOS 13 or later. No permissions are needed: the global shortcut doesn't require Accessibility access.
+
+### Build from source
+
+You only need the Xcode Command Line Tools (`xcode-select --install`), not Xcode itself.
 
 ```bash
 git clone https://github.com/ESeungJun/hopbox.git
 cd hopbox
 ./build.sh install      # builds 택배상자.app, installs it to ~/Applications and opens it
 ```
-
-macOS 13 or later. The app is ad-hoc signed, so on first launch macOS may ask you to confirm opening it
-(right-click → Open). No permissions are needed: the global shortcut doesn't require Accessibility access.
 
 ## Built with
 
@@ -69,6 +90,7 @@ Built together with Claude Code.
 swift build             # debug build
 ./build.sh              # build/택배상자.app
 ./build.sh install      # install to ~/Applications and launch
+./build.sh release      # zips for Apple silicon and Intel (build/release)
 ```
 
 <details>
@@ -87,6 +109,7 @@ swift build             # debug build
 | `Sources/Hopbox/Shortcut.swift` | The shortcut: saved value, display name, recorder window |
 | `Sources/Hopbox/DragSource.swift` | Copy-only drag out, click vs. drag handling |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook previews |
+| `Sources/Hopbox/Log.swift` | Logs which pasteboard types came and went (never the contents) |
 
 Contents are stored in `~/Library/Application Support/Hopbox`.
 

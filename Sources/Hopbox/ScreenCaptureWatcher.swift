@@ -183,6 +183,7 @@ final class ScreenCaptureWatcher {
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
         guard Self.isCopiedImage(pasteboard) else { return }
+        Log.types("복사한 이미지", pasteboard)
         store.addCaptureFromPasteboard(pasteboard)
     }
 

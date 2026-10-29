@@ -214,6 +214,7 @@ final class ShelfHostingView: NSHostingView<BoxView> {
     override var mouseDownCanMoveWindow: Bool { false }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        Log.types("끌어오기", sender.draggingPasteboard)
         // 상자에서 끌어낸 것을 다시 상자에 떨어뜨리는 경우는 받지 않는다
         guard sender.draggingSource == nil, store.canAdd(from: sender.draggingPasteboard) else { return [] }
         store.isDropTargeted = true

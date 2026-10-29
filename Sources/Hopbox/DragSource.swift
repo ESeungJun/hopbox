@@ -70,6 +70,10 @@ final class DragSourceView: NSView, NSDraggingSource {
     ) -> NSDragOperation {
         context == .outsideApplication ? .copy : []
     }
+
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        Log.transfer.notice("끌어내기 끝: operation \(operation.rawValue, privacy: .public)")
+    }
 }
 
 /// 상자 아이콘. 누르면 열고 닫고, 끌면 상자를 옮긴다.
