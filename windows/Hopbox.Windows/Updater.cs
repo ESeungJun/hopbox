@@ -21,7 +21,8 @@ sealed class Updater
 {
     public enum Phase { Idle, Available, Installing }
 
-    public sealed record Release(Version Version, string Download, string Sha256);
+    /// <summary>Download·Sha256 은 이 PC 에 맞는 설치 파일이 아직 없거나 믿을 수 없으면 null</summary>
+    public sealed record Release(Version Version, string? Download, string? Sha256);
 
     const string LatestUrl = "https://api.github.com/repos/ESeungJun/hopbox/releases/latest";
     const string DownloadPrefix = "https://github.com/ESeungJun/hopbox/releases/download/";
@@ -72,7 +73,22 @@ sealed class Updater
     /// <summary>CI 의 시험 빌드(0.0.0)는 확인하지 않는다</summary>
     public void Start()
     {
+        RemoveOldDownloads();
         if (Current > new Version(0, 0, 0)) _timer.Start();
+    }
+
+    /// <summary>지난 업데이트 때 받아 둔 설치 파일을 지운다</summary>
+    static void RemoveOldDownloads()
+    {
+        try
+        {
+            foreach (var folder in Directory.EnumerateDirectories(Path.GetTempPath(), "hopbox-update-*"))
+            {
+                try { Directory.Delete(folder, recursive: true); }
+                catch (Exception) { }
+            }
+        }
+        catch (Exception) { }
     }
 
     /// <summary>메뉴를 누르면: 새 버전을 알고 있으면 설치하고, 아니면 확인한다</summary>
@@ -95,6 +111,14 @@ sealed class Updater
                 if (manual) Message?.Invoke("최신 버전을 쓰고 있어요", $"택배상자 {CurrentText}");
                 return;
             }
+            if (latest.Download is null)
+            {
+                // 릴리스는 나왔는데 이 PC 용 설치 파일이 아직 안 올라왔다. 다음 확인 때 다시 본다
+                _release = null;
+                SetState(Phase.Idle);
+                if (manual) Message?.Invoke($"택배상자 {Text(latest.Version)} 을 준비하는 중이에요", "잠시 뒤에 다시 확인해 주세요.");
+                return;
+            }
             _release = latest;
             SetState(Phase.Available);
             var version = Text(latest.Version);
@@ -114,7 +138,7 @@ sealed class Updater
 
     public async Task Install()
     {
-        if (_release is not { } release || State == Phase.Installing) return;
+        if (_release is not { Download: not null, Sha256: not null } release || State == Phase.Installing) return;
         SetState(Phase.Installing);
         try
         {
@@ -150,11 +174,12 @@ sealed class Updater
         if (!Version.TryParse(tag.TrimStart('v'), out var version)) return null;
         var asset = root.GetProperty("assets").EnumerateArray()
             .FirstOrDefault(a => a.GetProperty("name").GetString() == assetName);
-        if (asset.ValueKind != JsonValueKind.Object) return null;
+        if (asset.ValueKind != JsonValueKind.Object) return new Release(Normalize(version), null, null);
         var download = asset.GetProperty("browser_download_url").GetString() ?? "";
         // 이 저장소의 릴리스 파일이고, GitHub 가 내용 해시를 알려 줄 때만 받는다 (설치 파일은 코드 서명이 없다)
         var digest = asset.TryGetProperty("digest", out var value) ? value.GetString() : null;
-        if (!download.StartsWith(DownloadPrefix, StringComparison.Ordinal) || digest is null || !digest.StartsWith("sha256:")) return null;
+        if (!download.StartsWith(DownloadPrefix, StringComparison.Ordinal) || digest is null || !digest.StartsWith("sha256:"))
+            return new Release(Normalize(version), null, null);
         return new Release(Normalize(version), download, digest["sha256:".Length..]);
     }
 
@@ -164,7 +189,7 @@ sealed class Updater
         var folder = Path.Combine(Path.GetTempPath(), "hopbox-update-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, AssetName);
-        var bytes = await Http.GetByteArrayAsync(release.Download);
+        var bytes = await Http.GetByteArrayAsync(release.Download!);
         var hash = Convert.ToHexString(SHA256.HashData(bytes));
         if (!string.Equals(hash, release.Sha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("받은 설치 파일이 릴리스와 달라요");

@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = ShortcutRecorderWindow(
             current: Shortcut.saved,
             onRecord: { shortcut in
-                // 다른 앱이 이미 쓰는 조합인지 한 번 등록해 보고 바로 푼다
+                // 등록이 되는 조합인지 한 번 등록해 보고 바로 푼다
                 guard HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers, action: {}) != nil else { return false }
                 Shortcut.saved = shortcut
                 return true

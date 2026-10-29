@@ -1,7 +1,8 @@
 import Carbon
 
 /// 전역 단축키. Carbon 의 RegisterEventHotKey 는 손쉬운 사용 권한이 필요 없다.
-/// 다른 앱이 이미 전역으로 잡은 조합이면 등록하지 않는다(겹치면 두 앱 중 하나가 키를 못 받는다).
+/// 다른 앱이 같은 조합을 잡아도 등록은 성공하므로(독점 등록끼리만 실패한다) 겹침은 Shortcut.conflict 에서 거른다.
+/// 독점 등록은 쓰지 않는다. 다른 앱이 보통으로 잡은 키를 빼앗기 때문이다
 final class HotKey {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
@@ -36,7 +37,7 @@ final class HotKey {
             UInt32(modifiers),
             hotKeyID,
             GetApplicationEventTarget(),
-            OptionBits(kEventHotKeyExclusive),
+            0,
             &hotKeyRef
         )
         guard registerStatus == noErr else {

@@ -23,7 +23,7 @@ struct Shortcut: Codable, Equatable {
         }
     }
 
-    /// 키 입력에서 단축키를 만든다. ⌘·⌥·⌃ 중 하나는 있어야 한다 (⇧ 만으로는 글자 입력과 겹친다)
+    /// 키 입력에서 단축키를 만든다. 수정키가 하나도 없으면 nil. 쓸 수 있는 조합인지는 conflict 가 본다
     init?(event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         var modifiers = 0
@@ -42,7 +42,7 @@ struct Shortcut: Codable, Equatable {
 
     /// 이 조합을 상자 단축키로 쓰면 안 되는 이유. 괜찮으면 nil.
     /// 전역 단축키는 다른 앱에 키가 가지 않는다. 그래서 앱들이 즐겨 쓰는 ⌘ 조합은 받지 않고 ⌃ 에 다른 수정키를 더한 조합만 받는다.
-    /// 다른 앱이 이미 전역으로 잡은 조합은 HotKey 등록이 실패하는 것으로 걸러진다
+    /// 다른 앱의 전역 단축키는 macOS 가 알려 주지 않아서 걸러 내지 못한다
     var conflict: String? {
         let modifiers = modifiers & Self.modifierMask
         if modifiers & controlKey == 0 || modifiers == controlKey {
@@ -170,7 +170,7 @@ final class ShortcutRecorderWindow: NSWindow {
             model.current = shortcut
             model.message = "\(shortcut.displayName) 로 바꿨어요"
         } else {
-            model.message = "\(shortcut.displayName) 는 다른 앱이 전역 단축키로 쓰고 있어요"
+            model.message = "\(shortcut.displayName) 를 등록하지 못했어요"
         }
     }
 

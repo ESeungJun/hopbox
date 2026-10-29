@@ -47,7 +47,8 @@ Source: "{#Source}\Hopbox.exe"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{userprograms}\HOPBOX 택배상자"; Filename: "{app}\Hopbox.exe"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Hopbox"; ValueData: """{app}\Hopbox.exe"""; Tasks: startup; Flags: uninsdeletevalue
+; 앱 안에서 업데이트할 때(조용한 설치)는 자동 실행을 건드리지 않는다. 사용자가 메뉴에서 끈 것을 되살리지 않도록
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Hopbox"; ValueData: """{app}\Hopbox.exe"""; Tasks: startup; Flags: uninsdeletevalue; Check: not WizardSilent
 ; 설치 때 고르지 않고 앱 메뉴에서 켠 자동 실행도 제거할 때 지운다
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Hopbox"; Flags: uninsdeletevalue
 

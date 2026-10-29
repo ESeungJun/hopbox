@@ -54,7 +54,8 @@ Put things in, switch spaces, call it again, and take them out.
 Both automatic options, launch at login and the shortcut itself can be changed from the box icon in the menu bar (the notification area on Windows).
 A global shortcut keeps the keys from reaching other apps, so the box only accepts combinations that rarely clash:
 ⌃ plus ⌥, ⇧ or ⌘ on Mac, and two of Ctrl, Alt and Win on Windows.
-Combinations already taken by the system or by another app's global shortcut are refused.
+macOS shortcuts are refused too. On Windows, combinations already taken by Windows or another app's global shortcut are refused.
+macOS doesn't reveal other apps' global shortcuts, so if one clashes on Mac, pick a different combination for the box.
 
 ## Install
 

@@ -410,10 +410,12 @@ public sealed class UpdaterTests
     }
 
     [Fact]
-    public void 해시가_없거나_다른_곳의_파일이면_받지_않는다()
+    public void 해시가_없거나_다른_곳의_파일이거나_아직_없으면_받지_않는다()
     {
-        Assert.Null(Updater.Parse(Json("v1.2.3", Url, null), "Hopbox-Windows-x64-Setup.exe"));
-        Assert.Null(Updater.Parse(Json("v1.2.3", "https://example.com/Setup.exe", "sha256:abc"), "Hopbox-Windows-x64-Setup.exe"));
-        Assert.Null(Updater.Parse(Json("v1.2.3", Url, "sha256:abc"), "Hopbox-Windows-arm64-Setup.exe"));
+        Assert.Null(Updater.Parse(Json("v1.2.3", Url, null), "Hopbox-Windows-x64-Setup.exe")?.Download);
+        Assert.Null(Updater.Parse(Json("v1.2.3", "https://example.com/Setup.exe", "sha256:abc"), "Hopbox-Windows-x64-Setup.exe")?.Download);
+        var missing = Updater.Parse(Json("v1.2.3", Url, "sha256:abc"), "Hopbox-Windows-arm64-Setup.exe");
+        Assert.Equal(new Version(1, 2, 3), missing?.Version);
+        Assert.Null(missing?.Download);
     }
 }
