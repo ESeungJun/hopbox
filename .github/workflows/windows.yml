@@ -16,9 +16,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
@@ -34,6 +34,18 @@ jobs:
               -o "out/$arch"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+
+      - name: 켜서 상자 부르기 (바로 꺼지지 않는지)
+        shell: pwsh
+        run: |
+          $app = Start-Process out/x64/Hopbox.exe -PassThru
+          Start-Sleep -Seconds 6
+          if ($app.HasExited) { Write-Error "켜자마자 꺼졌어요 (종료 코드 $($app.ExitCode))"; exit 1 }
+          # 두 번째로 실행하면 이미 켜진 앱이 상자를 부르고, 담긴 게 있으면 부채꼴을 연다
+          Start-Process out/x64/Hopbox.exe -Wait
+          Start-Sleep -Seconds 3
+          if ($app.HasExited) { Write-Error "상자를 부르다 꺼졌어요 (종료 코드 $($app.ExitCode))"; exit 1 }
+          Stop-Process -Id $app.Id -Force
 
       - name: 설치 파일 만들기
         shell: pwsh
@@ -53,7 +65,7 @@ jobs:
           }
           Get-ChildItem dist | Format-Table Name, Length
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: hopbox-windows
           path: dist/*.exe
