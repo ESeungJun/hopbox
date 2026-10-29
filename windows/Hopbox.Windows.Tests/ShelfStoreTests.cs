@@ -390,3 +390,30 @@ public sealed class TransferTests
         Assert.Null(Intake.PngSize(new byte[24]));
     }
 }
+
+public sealed class UpdaterTests
+{
+    static string Json(string tag, string url, string? digest) =>
+        $$"""
+        {"tag_name":"{{tag}}","html_url":"https://github.com/ESeungJun/hopbox/releases/tag/{{tag}}",
+         "assets":[{"name":"Hopbox-Windows-x64-Setup.exe","browser_download_url":"{{url}}"{{(digest is null ? "" : $",\"digest\":\"{digest}\"")}}}]}
+        """;
+
+    const string Url = "https://github.com/ESeungJun/hopbox/releases/download/v1.2.3/Hopbox-Windows-x64-Setup.exe";
+
+    [Fact]
+    public void 릴리스에서_버전과_설치_파일을_읽는다()
+    {
+        var release = Updater.Parse(Json("v1.2.3", Url, "sha256:abc"), "Hopbox-Windows-x64-Setup.exe");
+        Assert.Equal(new Version(1, 2, 3), release?.Version);
+        Assert.Equal("abc", release?.Sha256);
+    }
+
+    [Fact]
+    public void 해시가_없거나_다른_곳의_파일이면_받지_않는다()
+    {
+        Assert.Null(Updater.Parse(Json("v1.2.3", Url, null), "Hopbox-Windows-x64-Setup.exe"));
+        Assert.Null(Updater.Parse(Json("v1.2.3", "https://example.com/Setup.exe", "sha256:abc"), "Hopbox-Windows-x64-Setup.exe"));
+        Assert.Null(Updater.Parse(Json("v1.2.3", Url, "sha256:abc"), "Hopbox-Windows-arm64-Setup.exe"));
+    }
+}

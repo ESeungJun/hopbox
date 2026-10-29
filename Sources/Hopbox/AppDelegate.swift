@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import ServiceManagement
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let store = ShelfStore()
     private var panel: ShelfPanel!
@@ -13,11 +14,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let loginItem = NSMenuItem(title: "로그인 시 자동 실행", action: #selector(toggleLoginItem), keyEquivalent: "")
     private let openItem = NSMenuItem(title: "상자 열기", action: #selector(openPanel), keyEquivalent: "")
     private var recorderWindow: ShortcutRecorderWindow?
+    private let updater = Updater()
+    private let versionItem = NSMenuItem(title: "택배상자 \(Updater.currentVersion)", action: nil, keyEquivalent: "")
+    private let updateItem = NSMenuItem(title: "업데이트 확인…", action: #selector(checkForUpdates), keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         panel = ShelfPanel(store: store)
         setUpStatusItem()
         captureWatcher.start()
+        updater.canInterrupt = { [weak self] in self?.panel.isVisible != true }
+        updater.onChange = { [weak self] in self?.updateUpdateItem() }
+        updater.start()
 
         if !registerHotKey(Shortcut.saved) {
             let alert = NSAlert()
@@ -82,8 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(loginItem)
         menu.addItem(NSMenuItem(title: "단축키 바꾸기…", action: #selector(changeShortcut), keyEquivalent: ""))
         menu.addItem(.separator())
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+        menu.addItem(updateItem)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        menu.items.forEach { if $0.action != #selector(NSApplication.terminate(_:)) { $0.target = self } }
+        menu.items.forEach { if $0.action != #selector(NSApplication.terminate(_:)) && $0.action != nil { $0.target = self } }
         statusItem.menu = menu
     }
 
@@ -91,6 +102,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         captureFilesItem.state = captureWatcher.watchesFiles ? .on : .off
         copiedImagesItem.state = captureWatcher.watchesPasteboard ? .on : .off
+    }
+
+    @objc private func checkForUpdates() {
+        updater.menuAction()
+    }
+
+    /// 새 버전이 있으면 메뉴 항목이 "설치" 로, 받는 중이면 눌리지 않게 바뀐다
+    private func updateUpdateItem() {
+        switch updater.state {
+        case .idle: updateItem.title = "업데이트 확인…"
+        case .available(let version): updateItem.title = "새 버전 \(version) 설치…"
+        case .installing: updateItem.title = "업데이트 받는 중…"
+        }
+        updateItem.isEnabled = updater.state != .installing
     }
 
     @objc private func toggleCaptureFiles() {

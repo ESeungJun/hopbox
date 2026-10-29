@@ -47,6 +47,9 @@ Put things in, switch spaces, call it again, and take them out.
   Files copied in Finder or Explorer, cells from spreadsheets and password-manager values are left alone.
 - **Undo** — removing items or emptying the box can be undone for five seconds.
 - **Remembers** — the box keeps its contents across restarts. Files are referenced, not copied.
+- **Keeps itself up to date** — checks for a new release at launch and once a day, then installs it and relaunches when you click.
+  On Mac it only installs an update signed with the same Developer ID and notarized by Apple; on Windows the installer must match the SHA-256 that GitHub publishes.
+  The current version is shown in the menu.
 
 Both automatic options, launch at login and the shortcut itself can be changed from the box icon in the menu bar (the notification area on Windows).
 A global shortcut keeps the keys from reaching other apps, so the box only accepts combinations that rarely clash:
@@ -140,7 +143,8 @@ dotnet run --project windows/Hopbox.Windows   # run
 | `Sources/Hopbox/DragSource.swift` | Copy-only drag out, click vs. drag handling |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook previews |
 | `Sources/Hopbox/Log.swift` | Logs which pasteboard types came and went (never the contents) |
-| `windows/Hopbox.Windows/` | Windows app: notification area (`Tray`), shortcut (`HotKey`, `ShortcutWindow`), box window (`BoxWindow`, `FanView`, `ListCard`), contents (`ShelfStore`), clipboard in and out (`Transfer`), auto-adding (`Watchers`) |
+| `Sources/Hopbox/Updater.swift` | Checks GitHub releases, verifies the signature and notarization, swaps the app and relaunches |
+| `windows/Hopbox.Windows/` | Windows app: notification area (`Tray`), shortcut (`HotKey`, `ShortcutWindow`), box window (`BoxWindow`, `FanView`, `ListCard`), contents (`ShelfStore`), clipboard in and out (`Transfer`), auto-adding (`Watchers`), updates (`Updater`) |
 | `windows/Hopbox.Windows.Tests/` | Windows tests |
 | `windows/installer/hopbox.iss` | Windows installer (Inno Setup) |
 

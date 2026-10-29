@@ -47,6 +47,9 @@ HOPBOX 는 지금 보고 있는 화면으로 불러올 수 있는 상자입니�
   Finder·탐색기에서 복사한 파일, 스프레드시트 셀, 비밀번호 관리자의 값은 담지 않습니다.
 - **되돌리기** — 빼거나 비운 것은 5초 동안 되돌릴 수 있습니다.
 - **기억하기** — 앱을 다시 켜도 담긴 것이 남아 있습니다. 파일은 복사하지 않고 원본을 가리킵니다.
+- **알아서 최신 버전으로** — 켤 때와 하루에 한 번 새 릴리스를 확인하고, 알림을 누르면 받아서 설치한 뒤 다시 켭니다.
+  맥은 같은 Developer ID 로 서명하고 Apple 공증을 받은 것만, 윈도우는 GitHub 가 알려 준 SHA-256 과 맞는 설치 파일만 설치합니다.
+  지금 버전은 메뉴에서 볼 수 있습니다.
 
 자동 담기 두 가지, 로그인 시 실행, 단축키는 메뉴 막대(윈도우는 알림 영역)의 상자 아이콘에서 바꿀 수 있습니다.
 전역 단축키는 다른 앱에 키가 가지 않게 막기 때문에, 겹치기 어려운 조합만 받습니다.
@@ -140,7 +143,8 @@ dotnet run --project windows/Hopbox.Windows   # 실행
 | `Sources/Hopbox/DragSource.swift` | 복사로만 끌어내기, 클릭과 끌기 구분 |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook 미리보기 |
 | `Sources/Hopbox/Log.swift` | 주고받은 형식 이름 기록 (내용은 남기지 않음) |
-| `windows/Hopbox.Windows/` | 윈도우판: 알림 영역(`Tray`), 단축키(`HotKey`·`ShortcutWindow`), 상자 창(`BoxWindow`·`FanView`·`ListCard`), 상자 내용(`ShelfStore`), 클립보드 주고받기(`Transfer`), 자동 담기(`Watchers`) |
+| `Sources/Hopbox/Updater.swift` | GitHub 릴리스 확인, 서명·공증 확인 후 앱 바꿔 끼우고 다시 켜기 |
+| `windows/Hopbox.Windows/` | 윈도우판: 알림 영역(`Tray`), 단축키(`HotKey`·`ShortcutWindow`), 상자 창(`BoxWindow`·`FanView`·`ListCard`), 상자 내용(`ShelfStore`), 클립보드 주고받기(`Transfer`), 자동 담기(`Watchers`), 업데이트(`Updater`) |
 | `windows/Hopbox.Windows.Tests/` | 윈도우판 시험 |
 | `windows/installer/hopbox.iss` | 윈도우 설치 파일 (Inno Setup) |
 

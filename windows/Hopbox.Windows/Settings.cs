@@ -15,6 +15,8 @@ public sealed class Settings
     public bool AutoAddCaptures { get; set; } = true;
     /// <summary>복사한 이미지 자동 담기</summary>
     public bool AutoAddCopiedImages { get; set; } = true;
+    /// <summary>저절로 알린 새 버전. 같은 버전은 한 번만 알린다</summary>
+    public string? NotifiedUpdateVersion { get; set; }
 
     [JsonIgnore]
     public Shortcut Shortcut

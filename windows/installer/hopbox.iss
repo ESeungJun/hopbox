@@ -53,6 +53,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\Hopbox.exe"; Description: "택배상자 실행"; Flags: nowait postinstall skipifsilent
+; 앱 안에서 업데이트하면 설치 파일이 조용히 돌므로, 끝나면 앱을 다시 켠다
+Filename: "{app}\Hopbox.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM Hopbox.exe /F"; Flags: runhidden; RunOnceId: "StopHopbox"

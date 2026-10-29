@@ -95,6 +95,15 @@ static class App
         };
         tray.Quit += () => app.Shutdown();
 
+        var updater = new Updater(settings, dispatcher);
+        updater.Changed += () => tray.ShowUpdateState(updater.State, updater.AvailableVersion);
+        // 새 버전은 풍선으로 알리고, 풍선이나 메뉴를 누를 때만 설치한다
+        updater.Found += tray.ShowUpdateFound;
+        updater.Message += (message, detail) => tray.ShowMessage(message, detail);
+        updater.Restarting += () => app.Shutdown();
+        tray.Update += updater.MenuAction;
+        updater.Start();
+
         // 두 번째로 실행하면 상자를 부른다
         var waiter = new Thread(() =>
         {
