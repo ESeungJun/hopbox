@@ -2,7 +2,7 @@
 
 <h1 align="center">HOPBOX · 택배상자</h1>
 
-<p align="center">A little parcel box that hops between your full-screen spaces on macOS.<br>
+<p align="center">A little parcel box that hops between your full-screen spaces and desktops on macOS and Windows.<br>
 Drop files, text and images in on one desktop, press the shortcut on another, and they're right there.</p>
 
 <p align="center"><b>English</b> · <a href="README.ko.md">한국어</a></p>
@@ -10,7 +10,9 @@ Drop files, text and images in on one desktop, press the shortcut on another, an
 <p align="center">
   <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ Download for Mac (Apple silicon)</b></a> ·
   <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-intel.dmg"><b>⬇ Download for Mac (Intel)</b></a><br>
-  <sub>Signed and notarized · macOS 13+ · <a href="https://github.com/ESeungJun/hopbox/releases">All releases</a></sub>
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe"><b>⬇ Download for Windows (x64)</b></a> ·
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe"><b>⬇ Download for Windows (ARM)</b></a><br>
+  <sub>Mac: signed and notarized, macOS 13+ · Windows 10+ · <a href="https://github.com/ESeungJun/hopbox/releases">All releases</a></sub>
 </p>
 
 <p align="center"><img src="docs/images/hero.png" width="560" alt="HOPBOX: the parcel box opened into a fan of files, a note and a screenshot"></p>
@@ -26,9 +28,9 @@ Put things in, switch spaces, call it again, and take them out.
 
 ## How it works
 
-1. Press **⇧⌘F** anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
-2. **Drop** files onto the box, or press **⌘V** to put in whatever you copied: text, images, files.
-3. Switch to another space and press **⇧⌘F** again. The same box arrives there.
+1. Press **⇧⌘F** (**Ctrl+Shift+F** on Windows) anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
+2. **Drop** files onto the box, or press **⌘V** (**Ctrl+V**) to put in whatever you copied: text, images, files.
+3. Switch to another space or desktop and press the shortcut again. The same box arrives there.
 4. Click the box to open it. Its contents fan out like a Dock stack.
    **Drag** an item out to attach it, or **click** it to copy.
 
@@ -40,17 +42,17 @@ Put things in, switch spaces, call it again, and take them out.
 - **Safe to drag out** — items always leave as copies. Dragging a file into Finder never moves your original.
 - **Fan, then list** — up to ten items fan out; "N more" opens a full list you can drag everything out of at once.
 - **Screenshots go straight in** — new screenshots and screen recordings are added automatically,
-  following the save location you set in macOS.
-- **Copied images go straight in** — images copied in Slack or a browser, and clipboard screenshots (⌃⇧⌘4), are added too.
-  Files copied in Finder, cells from spreadsheets and password-manager values are left alone.
+  following the save location you set in macOS, or the Pictures\Screenshots and Videos\Screen Recordings·Captures folders on Windows.
+- **Copied images go straight in** — images copied in Slack or a browser, and clipboard screenshots (⌃⇧⌘4 on Mac, Win+Shift+S on Windows), are added too.
+  Files copied in Finder or Explorer, cells from spreadsheets and password-manager values are left alone.
 - **Undo** — removing items or emptying the box can be undone for five seconds.
 - **Remembers** — the box keeps its contents across restarts. Files are referenced, not copied.
 
-Both automatic options, launch at login and the shortcut itself can be changed from the menu bar icon.
+Both automatic options, launch at login and the shortcut itself can be changed from the box icon in the menu bar (the notification area on Windows).
 
 ## Install
 
-### Download
+### Mac
 
 Grab the installer for your Mac from [Releases](https://github.com/ESeungJun/hopbox/releases/latest).
 
@@ -66,6 +68,18 @@ It's signed with a Developer ID and notarized by Apple, so it opens without any 
 
 Requires macOS 13 or later. No permissions are needed: the global shortcut doesn't require Accessibility access.
 
+### Windows
+
+| PC | Installer | Portable |
+|---|---|---|
+| Most PCs (Intel, AMD) | [`Hopbox-Windows-x64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-Setup.exe) | [`Hopbox-Windows-x64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-x64-portable.exe) |
+| ARM PCs (Snapdragon and others) | [`Hopbox-Windows-arm64-Setup.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-Setup.exe) | [`Hopbox-Windows-arm64-portable.exe`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-Windows-arm64-portable.exe) |
+
+The installer installs for your account only, without admin rights, and puts a box icon in the notification area.
+The app isn't code-signed yet, so SmartScreen may warn you on first launch: click **More info → Run anyway**.
+
+Requires Windows 10 or later. The box shows up on every virtual desktop and over full-screen windows.
+
 ### Build from source
 
 You only need the Xcode Command Line Tools (`xcode-select --install`), not Xcode itself.
@@ -78,9 +92,12 @@ cd hopbox
 
 ## Built with
 
-- **Swift · SwiftUI · AppKit** — a native menu bar app with a non-activating panel that can sit on full-screen spaces.
-- **Carbon hot keys** — a global shortcut without extra permissions.
-- **QuickLook Thumbnailing** — Finder-style previews of what's in the box.
+- **Mac: Swift · SwiftUI · AppKit** — a native menu bar app with a non-activating panel that can sit on full-screen spaces.
+  - **Carbon hot keys** — a global shortcut without extra permissions.
+  - **QuickLook Thumbnailing** — Finder-style previews of what's in the box.
+- **Windows: C# · WPF (.NET 8)** — a tool window that stays out of the taskbar, plus a notification-area icon.
+  - **RegisterHotKey** for the global shortcut, **AddClipboardFormatListener** for clipboard changes.
+  - **Shell thumbnails** — Explorer-style previews.
 
 Built together with Claude Code.
 
@@ -92,6 +109,13 @@ swift build             # debug build
 ./build.sh install      # install to ~/Applications and launch
 ./build.sh release      # dmgs for Apple silicon and Intel (build/release)
                         # set SIGN_IDENTITY and NOTARY_PROFILE to sign and notarize
+```
+
+The Windows app builds with the .NET 8 SDK. Installers are built by GitHub Actions (`.github/workflows/windows.yml`).
+
+```powershell
+dotnet test windows/Hopbox.Windows.Tests      # tests
+dotnet run --project windows/Hopbox.Windows   # run
 ```
 
 <details>
@@ -111,7 +135,10 @@ swift build             # debug build
 | `Sources/Hopbox/DragSource.swift` | Copy-only drag out, click vs. drag handling |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook previews |
 | `Sources/Hopbox/Log.swift` | Logs which pasteboard types came and went (never the contents) |
+| `windows/Hopbox.Windows/` | Windows app: notification area (`Tray`), shortcut (`HotKey`, `ShortcutWindow`), box window (`BoxWindow`, `FanView`, `ListCard`), contents (`ShelfStore`), clipboard in and out (`Transfer`), auto-adding (`Watchers`) |
+| `windows/Hopbox.Windows.Tests/` | Windows tests |
+| `windows/installer/hopbox.iss` | Windows installer (Inno Setup) |
 
-Contents are stored in `~/Library/Application Support/Hopbox`.
+Contents are stored in `~/Library/Application Support/Hopbox` on Mac and `%APPDATA%\Hopbox` on Windows.
 
 </details>
