@@ -46,23 +46,17 @@ Both automatic options, launch at login and the shortcut itself can be changed f
 
 ### Download
 
-Grab the file for your Mac from [Releases](https://github.com/ESeungJun/hopbox/releases/latest).
+Grab the installer for your Mac from [Releases](https://github.com/ESeungJun/hopbox/releases/latest).
 
 | Mac | File |
 |---|---|
-| Apple silicon (M1 and later) | `Hopbox-<version>-macOS-apple-silicon.zip` |
-| Intel | `Hopbox-<version>-macOS-intel.zip` |
+| Apple silicon (M1 and later) | `Hopbox-<version>-macOS-apple-silicon.dmg` |
+| Intel | `Hopbox-<version>-macOS-intel.dmg` |
 
 You can check which one you have under  menu → About This Mac ("Chip" or "Processor").
 
-1. Unzip it and move `택배상자.app` to your Applications folder.
-2. The first launch shows an "unidentified developer" warning, because the app isn't notarized by Apple.
-   Open System Settings → Privacy & Security and click **Open Anyway** at the bottom.
-   Or, from Terminal:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/택배상자.app
-```
+Open the dmg and drag `택배상자.app` into Applications.
+It's signed with a Developer ID and notarized by Apple, so it opens without any warning.
 
 Requires macOS 13 or later. No permissions are needed: the global shortcut doesn't require Accessibility access.
 
@@ -90,7 +84,8 @@ Built together with Claude Code.
 swift build             # debug build
 ./build.sh              # build/택배상자.app
 ./build.sh install      # install to ~/Applications and launch
-./build.sh release      # zips for Apple silicon and Intel (build/release)
+./build.sh release      # dmgs for Apple silicon and Intel (build/release)
+                        # set SIGN_IDENTITY and NOTARY_PROFILE to sign and notarize
 ```
 
 <details>

@@ -45,23 +45,17 @@ HOPBOX 는 지금 보고 있는 화면으로 불러올 수 있는 상자입니�
 
 ### 내려받기
 
-[Releases](https://github.com/ESeungJun/hopbox/releases/latest) 에서 내 맥에 맞는 파일을 받습니다.
+[Releases](https://github.com/ESeungJun/hopbox/releases/latest) 에서 내 맥에 맞는 설치 파일을 받습니다.
 
 | 맥 | 파일 |
 |---|---|
-| 애플 칩(M1 이후) | `Hopbox-<버전>-macOS-apple-silicon.zip` |
-| 인텔 칩 | `Hopbox-<버전>-macOS-intel.zip` |
+| 애플 칩(M1 이후) | `Hopbox-<버전>-macOS-apple-silicon.dmg` |
+| 인텔 칩 | `Hopbox-<버전>-macOS-intel.dmg` |
 
 어떤 칩인지는  메뉴 → 이 Mac에 관하여 의 "칩" 또는 "프로세서" 에서 볼 수 있습니다.
 
-1. 압축을 풀고 `택배상자.app` 을 응용 프로그램 폴더로 옮깁니다.
-2. 처음 열면 "확인되지 않은 개발자" 경고가 뜹니다. Apple 공증을 받지 않은 앱이라서 그렇습니다.
-   시스템 설정 → 개인정보 보호 및 보안 맨 아래의 **그래도 열기** 를 누르면 됩니다.
-   터미널이 편하면 아래 한 줄로도 됩니다.
-
-```bash
-xattr -dr com.apple.quarantine /Applications/택배상자.app
-```
+dmg 를 열고 `택배상자.app` 을 응용 프로그램 폴더로 끌어 넣으면 끝입니다.
+Developer ID 로 서명하고 Apple 공증을 받아서 경고 없이 열립니다.
 
 macOS 13 이상에서 동작합니다. 따로 허용할 권한은 없습니다. 전역 단축키도 손쉬운 사용 권한 없이 동작합니다.
 
@@ -89,7 +83,8 @@ Claude Code 와 함께 만들었습니다.
 swift build             # 디버그 빌드
 ./build.sh              # build/택배상자.app
 ./build.sh install      # ~/Applications 에 설치하고 실행
-./build.sh release      # 애플 칩·인텔 칩용 zip (build/release)
+./build.sh release      # 애플 칩·인텔 칩용 dmg (build/release)
+                        # SIGN_IDENTITY·NOTARY_PROFILE 을 주면 서명·공증까지
 ```
 
 <details>

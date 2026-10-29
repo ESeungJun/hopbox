@@ -2,9 +2,15 @@
 # HOPBOX(택배상자) 빌드. Xcode 없이 Command Line Tools 만으로 .app 을 만든다.
 #   ./build.sh          → build/택배상자.app
 #   ./build.sh install  → ~/Applications 에 설치하고 실행
-#   ./build.sh release  → 애플 칩·인텔 칩용 zip 을 build/release 에 만든다
+#   ./build.sh release  → 애플 칩·인텔 칩용 설치 파일(.dmg)을 build/release 에 만든다
+#
+# 릴리스 서명·공증은 환경 변수로 켠다. 없으면 임시 서명만 하고 공증은 건너뛴다.
+#   SIGN_IDENTITY   예: "Developer ID Application: 이름 (팀ID)"
+#   NOTARY_PROFILE  xcrun notarytool store-credentials 로 저장한 프로필 이름
 set -euo pipefail
 cd "$(dirname "$0")"
+
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 # $1: 아키텍처(arm64·x86_64), $2: 만들 .app 경로
 make_app() {
@@ -15,7 +21,28 @@ make_app() {
     cp ".build/$1-apple-macosx/release/Hopbox" "$app/Contents/MacOS/Hopbox"
     cp Resources/Info.plist "$app/Contents/Info.plist"
     cp Resources/AppIcon.icns Resources/box-closed.png Resources/box-open.png "$app/Contents/Resources/"
-    codesign --force --sign - "$app"
+    if [[ "$SIGN_IDENTITY" == "-" ]]; then
+        codesign --force --sign - "$app"
+    else
+        codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$app"
+    fi
+}
+
+# $1: .app 경로, $2: 만들 .dmg 경로. 열면 응용 프로그램 폴더로 끌어 넣는 창이 뜬다
+make_dmg() {
+    local stage
+    stage=$(mktemp -d)
+    cp -R "$1" "$stage/"
+    ln -s /Applications "$stage/Applications"
+    hdiutil create -quiet -volname "택배상자" -srcfolder "$stage" -fs HFS+ -format UDZO -ov "$2"
+    rm -rf "$stage"
+    if [[ "$SIGN_IDENTITY" != "-" ]]; then
+        codesign --force --timestamp --sign "$SIGN_IDENTITY" "$2"
+    fi
+    if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+        xcrun notarytool submit "$2" --keychain-profile "$NOTARY_PROFILE" --wait
+        xcrun stapler staple "$2"
+    fi
 }
 
 if [[ "${1:-}" == "release" ]]; then
@@ -26,10 +53,10 @@ if [[ "${1:-}" == "release" ]]; then
         arch="${pair%%:*}"; name="${pair##*:}"
         mkdir -p "$OUT/$name"
         make_app "$arch" "$OUT/$name/택배상자.app"
-        ditto -c -k --keepParent "$OUT/$name/택배상자.app" "$OUT/Hopbox-$VERSION-macOS-$name.zip"
+        make_dmg "$OUT/$name/택배상자.app" "$OUT/Hopbox-$VERSION-macOS-$name.dmg"
     done
     echo "릴리스 파일:"
-    ls -1 "$OUT"/*.zip
+    ls -1 "$OUT"/*.dmg
     exit 0
 fi
 
