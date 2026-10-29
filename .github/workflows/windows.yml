@@ -38,6 +38,15 @@ jobs:
       - name: 켜서 상자 부르기 (바로 꺼지지 않는지)
         shell: pwsh
         run: |
+          # 부채꼴까지 그려 보도록 담긴 항목을 미리 넣어 둔다
+          $data = Join-Path $env:APPDATA Hopbox
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Copy-Item docs/images/icon.png "$env:USERPROFILE\Documents\hopbox-smoke.png"
+          $items = @(
+            @{ Id = [guid]::NewGuid(); Kind = 'Text'; Text = '시험 문장'; Preview = '시험 문장'; TextLength = 5; AddedAt = (Get-Date).ToString('o') },
+            @{ Id = [guid]::NewGuid(); Kind = 'File'; Path = "$env:USERPROFILE\Documents\hopbox-smoke.png"; AddedAt = (Get-Date).ToString('o') }
+          )
+          ConvertTo-Json $items | Set-Content -Encoding utf8 (Join-Path $data items.json)
           $app = Start-Process out/x64/Hopbox.exe -PassThru
           Start-Sleep -Seconds 6
           if ($app.HasExited) { Write-Error "켜자마자 꺼졌어요 (종료 코드 $($app.ExitCode))"; exit 1 }
@@ -46,6 +55,9 @@ jobs:
           Start-Sleep -Seconds 3
           if ($app.HasExited) { Write-Error "상자를 부르다 꺼졌어요 (종료 코드 $($app.ExitCode))"; exit 1 }
           Stop-Process -Id $app.Id -Force
+          $log = Join-Path $data error.log
+          if (Test-Path $log) { Get-Content $log; Write-Error "오류가 기록됐어요"; exit 1 }
+          if ((Get-Content (Join-Path $data items.json) | ConvertFrom-Json).Count -ne 2) { Write-Error "담긴 항목을 읽지 못했어요"; exit 1 }
 
       - name: 설치 파일 만들기
         shell: pwsh

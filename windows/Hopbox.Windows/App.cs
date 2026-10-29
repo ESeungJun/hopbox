@@ -23,6 +23,14 @@ static class App
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var dispatcher = app.Dispatcher;
+        // 예상 못 한 오류는 error.log 에 남기고 끝낸다. 문제를 알려 줄 때 이 파일을 보면 된다
+        app.DispatcherUnhandledException += (_, e) =>
+        {
+            LogError(e.Exception);
+            e.Handled = true;
+            app.Shutdown(1);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogError(e.ExceptionObject as Exception);
         var settings = Settings.Load();
         var store = new ShelfStore(ShelfStore.DefaultDirectory(), (delay, action) => Schedule(dispatcher, delay, action));
         var box = new BoxWindow(store);
@@ -103,6 +111,17 @@ static class App
             tray.Dispose();
         };
         app.Run();
+    }
+
+    static void LogError(Exception? error)
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(ShelfStore.DefaultDirectory(), "error.log");
+            System.IO.Directory.CreateDirectory(ShelfStore.DefaultDirectory());
+            System.IO.File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {error}{Environment.NewLine}");
+        }
+        catch (Exception) { }
     }
 
     /// <summary>화면 스레드에서 delay 뒤에 한 번 실행한다. Dispose 하면 취소된다</summary>
