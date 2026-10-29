@@ -46,14 +46,13 @@ make_dmg() {
 }
 
 if [[ "${1:-}" == "release" ]]; then
-    VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
     OUT="build/release"
     rm -rf "$OUT"
     for pair in "arm64:apple-silicon" "x86_64:intel"; do
         arch="${pair%%:*}"; name="${pair##*:}"
         mkdir -p "$OUT/$name"
         make_app "$arch" "$OUT/$name/택배상자.app"
-        make_dmg "$OUT/$name/택배상자.app" "$OUT/Hopbox-$VERSION-macOS-$name.dmg"
+        make_dmg "$OUT/$name/택배상자.app" "$OUT/Hopbox-macOS-$name.dmg"
     done
     echo "릴리스 파일:"
     ls -1 "$OUT"/*.dmg

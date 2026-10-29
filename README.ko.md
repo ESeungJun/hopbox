@@ -7,6 +7,12 @@
 
 <p align="center"><a href="README.md">English</a> · <b>한국어</b></p>
 
+<p align="center">
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ 맥용 받기 (애플 칩)</b></a> ·
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-intel.dmg"><b>⬇ 맥용 받기 (인텔 칩)</b></a><br>
+  <sub>서명·공증 완료 · macOS 13 이상 · <a href="https://github.com/ESeungJun/hopbox/releases">모든 릴리스</a></sub>
+</p>
+
 <p align="center"><img src="docs/images/hero.png" width="560" alt="HOPBOX: 상자를 열면 파일과 메모, 스크린샷이 부채꼴로 펼쳐진 모습"></p>
 
 ---
@@ -49,8 +55,8 @@ HOPBOX 는 지금 보고 있는 화면으로 불러올 수 있는 상자입니�
 
 | 맥 | 파일 |
 |---|---|
-| 애플 칩(M1 이후) | `Hopbox-<버전>-macOS-apple-silicon.dmg` |
-| 인텔 칩 | `Hopbox-<버전>-macOS-intel.dmg` |
+| 애플 칩(M1 이후) | [`Hopbox-macOS-apple-silicon.dmg`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg) |
+| 인텔 칩 | [`Hopbox-macOS-intel.dmg`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-intel.dmg) |
 
 어떤 칩인지는  메뉴 → 이 Mac에 관하여 의 "칩" 또는 "프로세서" 에서 볼 수 있습니다.
 

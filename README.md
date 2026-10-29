@@ -7,6 +7,12 @@ Drop files, text and images in on one desktop, press the shortcut on another, an
 
 <p align="center"><b>English</b> · <a href="README.ko.md">한국어</a></p>
 
+<p align="center">
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ Download for Mac (Apple silicon)</b></a> ·
+  <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-intel.dmg"><b>⬇ Download for Mac (Intel)</b></a><br>
+  <sub>Signed and notarized · macOS 13+ · <a href="https://github.com/ESeungJun/hopbox/releases">All releases</a></sub>
+</p>
+
 <p align="center"><img src="docs/images/hero.png" width="560" alt="HOPBOX: the parcel box opened into a fan of files, a note and a screenshot"></p>
 
 ---
@@ -50,8 +56,8 @@ Grab the installer for your Mac from [Releases](https://github.com/ESeungJun/hop
 
 | Mac | File |
 |---|---|
-| Apple silicon (M1 and later) | `Hopbox-<version>-macOS-apple-silicon.dmg` |
-| Intel | `Hopbox-<version>-macOS-intel.dmg` |
+| Apple silicon (M1 and later) | [`Hopbox-macOS-apple-silicon.dmg`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg) |
+| Intel | [`Hopbox-macOS-intel.dmg`](https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-intel.dmg) |
 
 You can check which one you have under  menu → About This Mac ("Chip" or "Processor").
 
