@@ -1,0 +1,66 @@
+name: windows
+
+# 윈도우판을 시험하고, x64·arm64 실행 파일과 설치 파일을 만든다.
+# 윈도우 코드가 바뀐 push 마다 돌고, v* 태그를 올리면 같은 이름의 릴리스에 파일을 붙인다.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths: ['windows/**', '.github/workflows/windows.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: 시험
+        run: dotnet test windows/Hopbox.Windows.Tests -c Release
+
+      - name: 실행 파일 만들기
+        shell: pwsh
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            dotnet publish windows/Hopbox.Windows -c Release -r "win-$arch" --self-contained true `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+              -o "out/$arch"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: 설치 파일 만들기
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc -ErrorAction SilentlyContinue
+          if (-not $iscc) {
+            $candidate = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+            if (-not (Test-Path $candidate)) { choco install innosetup -y --no-progress | Out-Null }
+            $iscc = $candidate
+          } else { $iscc = $iscc.Source }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '1.0.0' }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($arch in 'x64', 'arm64') {
+            & $iscc "/DArch=$arch" "/DSource=$PWD\out\$arch" "/DAppVersion=$version" "/DOutput=$PWD\dist" windows/installer/hopbox.iss
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Copy-Item "out/$arch/Hopbox.exe" "dist/Hopbox-Windows-$arch-portable.exe"
+          }
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hopbox-windows
+          path: dist/*.exe
+
+      - name: 릴리스에 붙이기
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: gh release upload $env:GITHUB_REF_NAME (Get-ChildItem dist/*.exe).FullName --clobber

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Hopbox</AssemblyName>
+    <RootNamespace>Hopbox</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>HOPBOX 택배상자</Product>
+    <Description>전체화면·가상 데스크톱 사이로 파일·글·이미지를 옮겨 주는 택배상자</Description>
+    <!-- 맥에서도 컴파일을 확인할 수 있게 한다 -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\Resources\box-closed.png" Link="Assets\box-closed.png" />
+    <Resource Include="..\..\Resources\box-open.png" Link="Assets\box-open.png" />
+    <EmbeddedResource Include="Assets\app.ico" LogicalName="app.ico" />
+    <InternalsVisibleTo Include="Hopbox.Windows.Tests" />
+  </ItemGroup>
+
+</Project>
