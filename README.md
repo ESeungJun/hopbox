@@ -20,9 +20,9 @@ Put things in, switch spaces, call it again, and take them out.
 
 ## How it works
 
-1. Press **⌥⌘B** anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
+1. Press **⇧⌘F** anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
 2. **Drop** files onto the box, or press **⌘V** to put in whatever you copied: text, images, files.
-3. Switch to another space and press **⌥⌘B** again. The same box arrives there.
+3. Switch to another space and press **⇧⌘F** again. The same box arrives there.
 4. Click the box to open it. Its contents fan out like a Dock stack.
    **Drag** an item out to attach it, or **click** it to copy.
 
@@ -40,7 +40,7 @@ Put things in, switch spaces, call it again, and take them out.
 - **Undo** — removing items or emptying the box can be undone for five seconds.
 - **Remembers** — the box keeps its contents across restarts. Files are referenced, not copied.
 
-Both automatic options and launch at login can be toggled from the menu bar icon.
+Both automatic options, launch at login and the shortcut itself can be changed from the menu bar icon.
 
 ## Install
 
@@ -84,6 +84,7 @@ swift build             # debug build
 | `Sources/Hopbox/ShelfView.swift` | Full list view |
 | `Sources/Hopbox/ShelfStore.swift` | What's in the box: adding, copying, removing with undo, saving |
 | `Sources/Hopbox/ScreenCaptureWatcher.swift` | Auto-adding screenshots, screen recordings and copied images |
+| `Sources/Hopbox/Shortcut.swift` | The shortcut: saved value, display name, recorder window |
 | `Sources/Hopbox/DragSource.swift` | Copy-only drag out, click vs. drag handling |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook previews |
 
