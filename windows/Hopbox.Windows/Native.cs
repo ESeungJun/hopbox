@@ -63,6 +63,17 @@ static class Native
     [DllImport("gdi32.dll")]
     public static extern bool DeleteObject(IntPtr handle);
 
+    [DllImport("gdi32.dll", EntryPoint = "GetObjectW")]
+    public static extern int GetObject(IntPtr handle, int size, out DIBSECTION section);
+
+    /// <summary>두 번째로 실행된 쪽이 첫 번째 앱에 창을 앞으로 가져올 권한을 넘긴다</summary>
+    [DllImport("user32.dll")]
+    public static extern bool AllowSetForegroundWindow(int processId);
+    public const int ASFW_ANY = -1;
+
+    [DllImport("ole32.dll")]
+    public static extern int OleGetClipboard(out System.Runtime.InteropServices.ComTypes.IDataObject data);
+
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
     public static extern void SHCreateItemFromParsingName(
         string path, IntPtr bindContext, [MarshalAs(UnmanagedType.LPStruct)] Guid riid,
@@ -76,6 +87,46 @@ static class Native
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAP
+    {
+        public int bmType;
+        public int bmWidth;
+        public int bmHeight;
+        public int bmWidthBytes;
+        public ushort bmPlanes;
+        public ushort bmBitsPixel;
+        public IntPtr bmBits;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BITMAPINFOHEADER
+    {
+        public int biSize;
+        public int biWidth;
+        public int biHeight;
+        public short biPlanes;
+        public short biBitCount;
+        public int biCompression;
+        public int biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public int biClrUsed;
+        public int biClrImportant;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DIBSECTION
+    {
+        public BITMAP dsBm;
+        public BITMAPINFOHEADER dsBmih;
+        public uint dsBitfields0;
+        public uint dsBitfields1;
+        public uint dsBitfields2;
+        public IntPtr dshSection;
+        public uint dsOffset;
     }
 
     [StructLayout(LayoutKind.Sequential)]

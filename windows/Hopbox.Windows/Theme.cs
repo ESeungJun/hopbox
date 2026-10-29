@@ -4,8 +4,10 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 using Button = System.Windows.Controls.Button;
 using Cursors = System.Windows.Input.Cursors;
+using Image = System.Windows.Controls.Image;
 using MenuItem = System.Windows.Controls.MenuItem;
 
 namespace Hopbox;
@@ -111,6 +113,13 @@ static class Theme
         });
     }
 
+    /// <summary>버튼 줄에서 앞 요소와 띄운다</summary>
+    public static FrameworkElement Spaced(FrameworkElement element)
+    {
+        element.Margin = new Thickness(6, 0, 0, 0);
+        return element;
+    }
+
     /// <summary>썸네일 한 칸. 그림이 있으면 그림, 텍스트는 노란 메모, 없으면 문서 아이콘</summary>
     public static FrameworkElement Thumbnail(ShelfItem item, double size)
     {
@@ -127,19 +136,28 @@ static class Theme
                 },
             };
         }
-        var source = Thumbnails.For(item, (int)size);
-        if (source is null)
+        // 미리보기는 화면을 먼저 그린 뒤 하나씩 채운다. 동영상이 많은 목록을 열 때 멈칫하지 않도록
+        var placeholder = new Border
         {
-            return new Border
+            Width = size, Height = size, CornerRadius = new CornerRadius(6), Background = Pill,
+            Child = new TextBlock
             {
-                Width = size, Height = size, CornerRadius = new CornerRadius(6), Background = Pill,
-                Child = new TextBlock
-                {
-                    Text = item.Exists ? "\uE8A5" : "\uE783", FontFamily = Icons, FontSize = size / 2.2, Foreground = Secondary,
-                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                },
-            };
+                Text = item.Exists ? "\uE8A5" : "\uE783", FontFamily = Icons, FontSize = size / 2.2, Foreground = Secondary,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+        var image = new Image { Width = size, Height = size, Stretch = Stretch.Uniform };
+        var cell = new Grid { Width = size, Height = size, Children = { placeholder, image } };
+        void Show(ImageSource? source)
+        {
+            if (source is null) return;
+            image.Source = source;
+            image.Effect = Shadow();
+            placeholder.Visibility = Visibility.Collapsed;
         }
-        return new Image { Source = source, Width = size, Height = size, Stretch = Stretch.Uniform, Effect = Shadow() };
+        if (Thumbnails.TryCached(item, (int)size, out var cached)) Show(cached);
+        else if (item.Exists)
+            cell.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => Show(Thumbnails.For(item, (int)size))));
+        return cell;
     }
 }

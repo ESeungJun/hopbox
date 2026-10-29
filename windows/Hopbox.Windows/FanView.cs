@@ -16,18 +16,27 @@ static class FanView
 {
     public const int MaxRows = 10;
     const double RowHeight = 58, ThumbSize = 50, SideMargin = 36, LabelMaxWidth = 300;
+    /// <summary>아이콘 가운데에서 첫 줄 가운데까지</summary>
+    const double FirstRowOffset = 62;
+    /// <summary>맨 끝 버튼 줄의 절반 높이와 화면 끝 여백</summary>
+    const double LastRowRoom = 17 + 8;
 
-    public static IEnumerable<UIElement> Build(ShelfStore store, BoxWindow box, Point icon, bool opensUp, bool iconOnRight, bool animate)
+    /// <summary>아이콘에서 화면 끝까지 room 만큼 남았을 때 보일 줄 수. 맨 끝 버튼 줄까지 화면 안에 들어오게 한다</summary>
+    public static int FitRows(double room) =>
+        Math.Clamp((int)Math.Floor((room - FirstRowOffset - LastRowRoom) / RowHeight), 0, MaxRows);
+
+    public static IEnumerable<UIElement> Build(ShelfStore store, ItemActions actions, Action openList, Point icon,
+        bool opensUp, bool iconOnRight, int maxRows, bool animate)
     {
         var items = store.Items;
-        var shown = items.Take(MaxRows).ToList();
+        var shown = items.Take(maxRows).ToList();
         var elements = new List<UIElement>();
 
         for (var i = 0; i < shown.Count; i++)
         {
             var item = shown[i];
             var row = Row(item, iconOnRight);
-            box.MakeDraggable(row, () => new[] { item }, () => box.Copy(item), () => box.MenuFor(item));
+            actions.Attach(row, item);
             row.ToolTip = "끌어서 꺼내기 · 클릭하면 복사 · 우클릭 메뉴";
             Place(row, i, icon, opensUp, iconOnRight, thumbAligned: true);
             row.RenderTransformOrigin = new Point(iconOnRight ? 1 : 0, 0.5);
@@ -49,22 +58,16 @@ static class FanView
             {
                 var more = Theme.PillText($"그 외 {hidden}개");
                 more.Cursor = System.Windows.Input.Cursors.Hand;
-                more.MouseLeftButtonUp += (_, e) => { box.OpenList(); e.Handled = true; };
+                more.MouseLeftButtonUp += (_, e) => { openList(); e.Handled = true; };
                 controls.Children.Add(more);
             }
-            controls.Children.Add(Spaced(Theme.IconButton("\uE8FD", "전체 목록", box.OpenList)));
-            controls.Children.Add(Spaced(Theme.IconButton("\uE74D", "모두 비우기 (되돌릴 수 있어요)", store.RemoveAll)));
+            controls.Children.Add(Theme.Spaced(Theme.IconButton("\uE8FD", "전체 목록", openList)));
+            controls.Children.Add(Theme.Spaced(Theme.IconButton("\uE74D", "모두 비우기 (되돌릴 수 있어요)", store.RemoveAll)));
         }
         Place(controls, shown.Count, icon, opensUp, iconOnRight, thumbAligned: false);
         if (animate) Theme.FadeIn(controls, offsetY: opensUp ? 18 : -18, delay: shown.Count * 0.02);
         elements.Add(controls);
         return elements;
-    }
-
-    static FrameworkElement Spaced(FrameworkElement element)
-    {
-        element.Margin = new Thickness(6, 0, 0, 0);
-        return element;
     }
 
     /// <summary>한 줄: 이름표 + 썸네일. 썸네일이 아이콘 쪽에 온다</summary>
@@ -104,7 +107,7 @@ static class FanView
         element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var size = element.DesiredSize;
         var bend = Math.Min(index * index * 0.4, SideMargin);
-        var centerY = opensUp ? icon.Y - 62 - index * RowHeight : icon.Y + 62 + index * RowHeight;
+        var centerY = opensUp ? icon.Y - FirstRowOffset - index * RowHeight : icon.Y + FirstRowOffset + index * RowHeight;
         var edge = thumbAligned ? ThumbSize / 2 : 18;
         var left = iconOnRight
             ? icon.X - bend + edge - size.Width

@@ -11,10 +11,11 @@ namespace Hopbox;
 /// <summary>전체 목록. 부채꼴에 다 안 들어갈 때 쓰고, 한꺼번에 끌어낼 수 있다</summary>
 static class ListCard
 {
-    public const double CardWidth = 340, CardHeight = 420;
+    public const double CardWidth = 340, CardHeight = 420, MinCardHeight = 220;
     const double ThumbSize = 34;
 
-    public static FrameworkElement Build(ShelfStore store, BoxWindow box)
+    /// <summary>height: 화면이 낮으면 CardHeight 보다 줄여서 넘긴다</summary>
+    public static FrameworkElement Build(ShelfStore store, ItemActions actions, Action close, double height)
     {
         var items = store.Items;
 
@@ -25,11 +26,11 @@ static class ListCard
         {
             var dragAll = Theme.IconCircle("\uE8B3", size: 28);
             dragAll.ToolTip = "끌면 전부 한꺼번에 꺼내요";
-            box.MakeDraggable(dragAll, () => store.Items.ToArray(), onClick: null);
+            actions.MakeDraggable(dragAll, () => store.Items.ToArray(), onClick: null);
             buttons.Children.Add(dragAll);
-            buttons.Children.Add(Gap(Theme.IconButton("\uE74D", "모두 비우기 (되돌릴 수 있어요)", store.RemoveAll, size: 28)));
+            buttons.Children.Add(Theme.Spaced(Theme.IconButton("\uE74D", "모두 비우기 (되돌릴 수 있어요)", store.RemoveAll, size: 28)));
         }
-        buttons.Children.Add(Gap(Theme.IconButton("\uE711", "닫기 (esc)", box.CloseToIcon, size: 28)));
+        buttons.Children.Add(Theme.Spaced(Theme.IconButton("\uE711", "닫기 (esc)", close, size: 28)));
         DockPanel.SetDock(buttons, Dock.Right);
         header.Children.Add(buttons);
         header.Children.Add(new TextBlock
@@ -54,7 +55,7 @@ static class ListCard
         else
         {
             var list = new StackPanel { Margin = new Thickness(6, 0, 6, 0) };
-            foreach (var item in items) list.Children.Add(Row(item, store, box));
+            foreach (var item in items) list.Children.Add(Row(item, actions));
             body = new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
@@ -73,15 +74,9 @@ static class ListCard
 
         return new Border
         {
-            Width = CardWidth, Height = CardHeight, Background = Theme.Card, CornerRadius = new CornerRadius(14),
+            Width = CardWidth, Height = height, Background = Theme.Card, CornerRadius = new CornerRadius(14),
             BorderBrush = Theme.CardLine, BorderThickness = new Thickness(1), Effect = Theme.Shadow(), Child = layout,
         };
-    }
-
-    static FrameworkElement Gap(FrameworkElement element)
-    {
-        element.Margin = new Thickness(6, 0, 0, 0);
-        return element;
     }
 
     static TextBlock Centered(string text, Brush brush, double size) => new()
@@ -90,7 +85,7 @@ static class ListCard
         HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 4),
     };
 
-    static FrameworkElement Row(ShelfItem item, ShelfStore store, BoxWindow box)
+    static FrameworkElement Row(ShelfItem item, ItemActions actions)
     {
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
         texts.Children.Add(new TextBlock
@@ -112,14 +107,14 @@ static class ListCard
         var frame = new Border { CornerRadius = new CornerRadius(8), Child = row, ToolTip = "끌어서 꺼내기 · 클릭하면 복사 · 우클릭 메뉴" };
         frame.MouseEnter += (_, _) => frame.Background = Theme.RowHover;
         frame.MouseLeave += (_, _) => frame.Background = null;
-        box.MakeDraggable(frame, () => new[] { item }, () => box.Copy(item), () => box.MenuFor(item));
+        actions.Attach(frame, item);
         return frame;
     }
 
     static string Subtitle(ShelfItem item) => item.Kind switch
     {
         ItemKind.Text => $"텍스트 · {item.TextLength ?? item.Text?.Length ?? 0}자",
-        ItemKind.Image => item.Exists ? "상자에 보관한 이미지" : "보관한 파일이 없어요",
+        ItemKind.Image => !item.Exists ? "보관한 파일이 없어요" : item.IsPicture ? "상자에 보관한 이미지" : "상자에 보관한 파일",
         _ => item.Exists ? Path.GetDirectoryName(item.Path) ?? "" : "원본 파일을 찾을 수 없어요",
     };
 }

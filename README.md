@@ -80,6 +80,8 @@ The app isn't code-signed yet, so SmartScreen may warn you on first launch: clic
 
 Requires Windows 10 or later. The box shows up on every virtual desktop and over full-screen windows.
 
+Uninstalling keeps your box contents and kept files in `%APPDATA%\Hopbox`. Delete that folder if you don't need them.
+
 ### Build from source
 
 You only need the Xcode Command Line Tools (`xcode-select --install`), not Xcode itself.

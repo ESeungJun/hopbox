@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
-using Clipboard = System.Windows.Clipboard;
 
 namespace Hopbox;
 
@@ -53,9 +52,11 @@ sealed class ClipboardWatcher : IDisposable
         try
         {
             var sequence = Native.GetClipboardSequenceNumber();
-            var data = Clipboard.GetDataObject();
-            if (data is null) return;
-            var payload = Transfer.Read(data, sequence);
+            // WPF 의 Clipboard.GetDataObject 는 클립보드가 잠겨 있으면 화면 스레드에서 잠들며 다시 시도한다.
+            // 직접 열고, 잠겨 있으면 아래 타이머로 조금 뒤에 다시 본다
+            var result = Native.OleGetClipboard(out var com);
+            if (result != 0) Marshal.ThrowExceptionForHR(result);
+            var payload = Transfer.Read(new System.Windows.DataObject(com), sequence, readText: false);
             if (Intake.IsCopiedImage(payload)) _store.AddCopiedImage(payload);
         }
         catch (COMException) when (attempt < 3)
@@ -79,6 +80,7 @@ sealed class CaptureWatcher : IDisposable
 {
     static readonly Guid ScreenshotsFolder = new("b7bede81-df94-4682-a7d8-57a52620b86f");
     static readonly string[] Extensions = { ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mkv", ".webm" };
+    static readonly TimeSpan MaxWait = TimeSpan.FromHours(6);
 
     readonly ShelfStore _store;
     readonly Dispatcher _dispatcher;
@@ -139,9 +141,18 @@ sealed class CaptureWatcher : IDisposable
             var watcher = new FileSystemWatcher(folder) { IncludeSubdirectories = false, EnableRaisingEvents = true };
             watcher.Created += (_, e) => Found(e.FullPath);
             watcher.Renamed += (_, e) => Found(e.FullPath);
+            // 폴더가 지워지거나 알림이 넘치면 감시가 멈춘다. 놓아 두면 다음 폴더 찾기 때 다시 붙는다
+            watcher.Error += (_, _) => _dispatcher.BeginInvoke(new Action(() => Forget(watcher, folder)));
             _watchers.Add(watcher);
             _watchedFolders.Add(folder);
         }
+    }
+
+    void Forget(FileSystemWatcher watcher, string folder)
+    {
+        if (!_watchers.Remove(watcher)) return;
+        watcher.Dispose();
+        _watchedFolders.Remove(folder);
     }
 
     void Found(string path)
@@ -150,32 +161,49 @@ sealed class CaptureWatcher : IDisposable
         _dispatcher.BeginInvoke(new Action(() =>
         {
             if (!_enabled || !_pending.Add(path)) return;
-            AddWhenWritten(path, previousSize: -1, attempts: 0);
+            AddWhenWritten(path, previousSize: -1, DateTime.Now);
         }));
     }
 
-    /// <summary>녹화처럼 오래 쓰는 파일은 크기가 멈출 때까지 기다렸다가 담는다</summary>
-    void AddWhenWritten(string path, long previousSize, int attempts)
+    /// <summary>
+    /// 녹화처럼 오래 쓰는 파일은 크기가 멈출 때까지 기다렸다가 담는다.
+    /// 녹화 중인 파일은 크기가 계속 바뀌므로 몇 시간짜리 녹화까지 기다린다
+    /// </summary>
+    void AddWhenWritten(string path, long previousSize, DateTime started)
     {
         var timer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromMilliseconds(700) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            if (!File.Exists(path) || attempts > 600)
+            var size = SizeOf(path);
+            if (size is null || DateTime.Now - started > MaxWait)
             {
                 _pending.Remove(path);
                 return;
             }
-            var size = new FileInfo(path).Length;
             if (size > 0 && size == previousSize && CanOpen(path))
             {
                 _pending.Remove(path);
                 if (_enabled) _store.AddCapture(path);
                 return;
             }
-            AddWhenWritten(path, size, attempts + 1);
+            AddWhenWritten(path, size.Value, started);
         };
         timer.Start();
+    }
+
+    /// <summary>파일 크기. 그사이 지워졌거나 읽을 수 없으면 null</summary>
+    static long? SizeOf(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     static bool CanOpen(string path)

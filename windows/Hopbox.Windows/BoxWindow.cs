@@ -28,8 +28,11 @@ sealed class BoxWindow : Window
 {
     public const double WindowWidth = 560, WindowHeight = 820;
     const double IconArea = 96, BoxImageSize = 82;
+    /// <summary>아이콘 가운데가 화면 끝에서 떨어져 있어야 하는 거리</summary>
+    const double EdgeMargin = 56;
 
     readonly ShelfStore _store;
+    readonly ItemActions _actions;
     readonly Canvas _root = new() { Focusable = true };
     readonly Canvas _content = new();
     readonly Grid _icon = new() { Width = IconArea, Height = IconArea };
@@ -51,17 +54,17 @@ sealed class BoxWindow : Window
     BoxMode _mode = BoxMode.Icon;
     /// <summary>아이콘 가운데의 화면 좌표</summary>
     Point _anchor;
+    /// <summary>아이콘에서 펼쳐지는 쪽 화면 끝까지 남은 높이</summary>
+    double _room;
     bool _opensUp = true;
     bool _iconOnRight = true;
     bool _dropTargeted;
     DispatcherTimer? _autoOpen;
 
-    /// <summary>상자에서 끌어내는 중. 상자에 다시 떨어뜨려도 받지 않는다</summary>
-    internal static bool DraggingOut;
-
     public BoxWindow(ShelfStore store)
     {
         _store = store;
+        _actions = new ItemActions(store);
         Title = "택배상자";
         Width = WindowWidth;
         Height = WindowHeight;
@@ -123,7 +126,7 @@ sealed class BoxWindow : Window
         UpdateBadge();
 
         SourceInitialized += (_, _) => MakeToolWindow();
-        Deactivated += (_, _) => { if (_mode != BoxMode.Icon && !DraggingOut) SetMode(BoxMode.Icon); };
+        Deactivated += (_, _) => { if (_mode != BoxMode.Icon && !ItemActions.DraggingOut) SetMode(BoxMode.Icon); };
         PreviewKeyDown += OnKey;
         DragEnter += OnDragOver;
         DragOver += OnDragOver;
@@ -159,13 +162,8 @@ sealed class BoxWindow : Window
     /// <summary>마우스 옆으로 상자를 배달한다. 위에서 살짝 내려앉고, 담긴 게 있으면 저절로 열린다</summary>
     public void Deliver()
     {
-        var scale = Native.GetDpiForSystem() / 96.0;
         Native.GetCursorPos(out var cursor);
-        var work = Screen.FromPoint(new System.Drawing.Point(cursor.X, cursor.Y)).WorkingArea;
-        const double margin = 56;
-        _anchor = new Point(
-            Math.Clamp(cursor.X / scale, work.Left / scale + margin, work.Right / scale - margin),
-            Math.Clamp(cursor.Y / scale, work.Top / scale + margin, work.Bottom / scale - margin));
+        _anchor = new Point(cursor.X / Scale, cursor.Y / Scale);
         _mode = BoxMode.Icon;
         _content.Children.Clear();
         _boxImage.Source = ClosedBox;
@@ -184,6 +182,14 @@ sealed class BoxWindow : Window
         _autoOpen.Start();
     }
 
+    /// <summary>알림 영역 메뉴에서 비울 때. 상자를 불러서 되돌리기 알림이 보이게 한다</summary>
+    public void EmptyFromTray()
+    {
+        Deliver();
+        _autoOpen?.Stop();
+        _store.RemoveAll();
+    }
+
     public void HideBox()
     {
         _autoOpen?.Stop();
@@ -191,15 +197,35 @@ sealed class BoxWindow : Window
         Hide();
     }
 
-    /// <summary>펼칠 방향을 정하고, 아이콘이 _anchor 에 오도록 창을 놓는다</summary>
+    /// <summary>
+    /// 화면 픽셀과 창 좌표(DIP)의 배율. 앱은 시스템 DPI 기준으로 동작하므로(모니터별 DPI 미사용)
+    /// 모든 모니터에 같은 배율을 쓴다
+    /// </summary>
+    static double Scale => Native.GetDpiForSystem() / 96.0;
+
+    /// <summary>점이 있는 모니터의 작업 영역(작업 표시줄 제외)을 창 좌표로</summary>
+    static Rect WorkAreaAt(Point point)
+    {
+        var scale = Scale;
+        var work = Screen.FromPoint(new System.Drawing.Point((int)(point.X * scale), (int)(point.Y * scale))).WorkingArea;
+        return new Rect(work.Left / scale, work.Top / scale, work.Width / scale, work.Height / scale);
+    }
+
+    /// <summary>
+    /// 아이콘을 화면 안으로 당기고, 펼칠 방향과 남은 높이를 정한 뒤, 아이콘이 _anchor 에 오도록 창을 놓는다.
+    /// 배달할 때뿐 아니라 끌어 옮긴 뒤, 펼칠 때마다 부른다
+    /// </summary>
     void Place()
     {
-        var scale = Native.GetDpiForSystem() / 96.0;
-        var work = Screen.FromPoint(new System.Drawing.Point((int)(_anchor.X * scale), (int)(_anchor.Y * scale))).WorkingArea;
-        var top = work.Top / scale;
-        var bottom = work.Bottom / scale;
-        _opensUp = _anchor.Y - top >= bottom - _anchor.Y;
-        _iconOnRight = _anchor.X > (work.Left + work.Right) / 2.0 / scale;
+        var work = WorkAreaAt(_anchor);
+        _anchor = new Point(
+            Math.Clamp(_anchor.X, work.Left + EdgeMargin, Math.Max(work.Left + EdgeMargin, work.Right - EdgeMargin)),
+            Math.Clamp(_anchor.Y, work.Top + EdgeMargin, Math.Max(work.Top + EdgeMargin, work.Bottom - EdgeMargin)));
+        var above = _anchor.Y - work.Top;
+        var below = work.Bottom - _anchor.Y;
+        _opensUp = above >= below;
+        _room = Math.Max(above, below);
+        _iconOnRight = _anchor.X > work.Left + work.Width / 2;
         var icon = IconCenter;
         Canvas.SetLeft(_icon, icon.X - IconArea / 2);
         Canvas.SetTop(_icon, icon.Y - IconArea / 2);
@@ -235,13 +261,17 @@ sealed class BoxWindow : Window
         var icon = IconCenter;
         if (_mode == BoxMode.Fan)
         {
-            foreach (var element in FanView.Build(_store, this, icon, _opensUp, _iconOnRight, animate))
+            var rows = FanView.FitRows(_room);
+            foreach (var element in FanView.Build(_store, _actions, OpenList, icon, _opensUp, _iconOnRight, rows, animate))
                 _content.Children.Add(element);
         }
         else if (_mode == BoxMode.List)
         {
-            var card = ListCard.Build(_store, this);
-            Canvas.SetTop(card, _opensUp ? icon.Y - 56 - ListCard.CardHeight : icon.Y + 56);
+            // 화면이 낮으면 목록 카드를 줄여서 머리줄(닫기·전부 끌기)이 화면 밖으로 나가지 않게 한다
+            const double gap = 56;
+            var height = Math.Clamp(_room - gap - 8, ListCard.MinCardHeight, ListCard.CardHeight);
+            var card = ListCard.Build(_store, _actions, CloseToIcon, height);
+            Canvas.SetTop(card, _opensUp ? icon.Y - gap - height : icon.Y + gap);
             Canvas.SetLeft(card, _iconOnRight ? icon.X + IconArea / 2 - ListCard.CardWidth : icon.X - IconArea / 2);
             _content.Children.Add(card);
             if (animate) Theme.FadeIn(card, offsetY: _opensUp ? 12 : -12, delay: 0);
@@ -270,9 +300,9 @@ sealed class BoxWindow : Window
         _toast.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var size = _toast.DesiredSize;
         var icon = IconCenter;
-        // 펼쳐지는 쪽의 반대편, 창 밖으로 나가지 않게
-        Canvas.SetLeft(_toast, Math.Clamp(icon.X - size.Width / 2, 8, WindowWidth - size.Width - 8));
-        Canvas.SetTop(_toast, _opensUp ? icon.Y + IconArea / 2 + 4 : icon.Y - IconArea / 2 - 4 - size.Height);
+        // 아이콘 옆, 화면 가운데 쪽에 둔다. 아이콘은 화면 안에 있으니 알림도 작업 표시줄에 겹치지 않는다
+        Canvas.SetLeft(_toast, _iconOnRight ? icon.X - IconArea / 2 - 6 - size.Width : icon.X + IconArea / 2 + 6);
+        Canvas.SetTop(_toast, icon.Y - size.Height / 2);
         Theme.FadeIn(_toast, offsetY: 0, delay: 0);
     }
 
@@ -297,8 +327,11 @@ sealed class BoxWindow : Window
             down = null;
             _icon.ReleaseMouseCapture();
             DragMove();
+            // 놓은 자리가 화면 밖이면 안으로 당긴다
             var icon = IconCenter;
             _anchor = new Point(Left + icon.X, Top + icon.Y);
+            Place();
+            if (_mode != BoxMode.Icon) Rebuild(animate: false);
         };
         _icon.MouseLeftButtonUp += (_, e) =>
         {
@@ -375,7 +408,7 @@ sealed class BoxWindow : Window
 
     void OnDragOver(object sender, DragEventArgs e)
     {
-        var accept = !DraggingOut && Transfer.CanAdd(e.Data);
+        var accept = !ItemActions.DraggingOut && Transfer.CanAdd(e.Data);
         e.Effects = accept ? DragDropEffects.Copy : DragDropEffects.None;
         SetDropTargeted(accept);
         e.Handled = true;
@@ -384,7 +417,7 @@ sealed class BoxWindow : Window
     void OnDrop(object sender, DragEventArgs e)
     {
         SetDropTargeted(false);
-        if (DraggingOut) return;
+        if (ItemActions.DraggingOut) return;
         _store.Add(Transfer.Read(e.Data));
         e.Handled = true;
     }
@@ -423,91 +456,6 @@ sealed class BoxWindow : Window
         {
             _store.ShowToast("담을 수 있는 내용이 없어요");
         }
-    }
-
-    // 항목 꺼내기 (부채꼴·목록이 같이 쓴다)
-
-    public void Copy(ShelfItem item)
-    {
-        if (!item.Exists)
-        {
-            _store.ShowToast(item.Kind == ItemKind.File ? "원본 파일을 찾을 수 없어요" : "보관한 파일이 없어요");
-            return;
-        }
-        try
-        {
-            Clipboard.SetDataObject(Transfer.ForClipboard(item), copy: true);
-            _store.ShowToast("복사했어요 · Ctrl+V 로 붙여넣기");
-        }
-        catch (Exception)
-        {
-            _store.ShowToast("복사하지 못했어요");
-        }
-    }
-
-    public void DragOut(DependencyObject source, ShelfItem[] items)
-    {
-        DraggingOut = true;
-        try
-        {
-            System.Windows.DragDrop.DoDragDrop(source, Transfer.ForDrag(items), DragDropEffects.Copy);
-        }
-        finally
-        {
-            DraggingOut = false;
-        }
-    }
-
-    public void Reveal(ShelfItem item)
-    {
-        if (item.Path is null || !item.Exists)
-        {
-            _store.ShowToast(item.Kind == ItemKind.File ? "원본 파일을 찾을 수 없어요" : "보관한 파일이 없어요");
-            return;
-        }
-        System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.Path}\"");
-    }
-
-    public ContextMenu MenuFor(ShelfItem item)
-    {
-        var menu = new ContextMenu();
-        menu.Items.Add(Theme.Menu("복사", () => Copy(item)));
-        if (item.Kind != ItemKind.Text) menu.Items.Add(Theme.Menu("탐색기에서 보기", () => Reveal(item)));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Theme.Menu("상자에서 빼기", () => _store.Remove(item)));
-        return menu;
-    }
-
-    /// <summary>항목 하나에 "끌면 꺼내기, 누르면 복사, 우클릭 메뉴" 를 붙인다</summary>
-    public void MakeDraggable(FrameworkElement element, Func<ShelfItem[]> items, Action? onClick, Func<ContextMenu?>? menu = null)
-    {
-        Point? down = null;
-        element.Cursor = Cursors.Hand;
-        element.MouseLeftButtonDown += (_, e) => { down = e.GetPosition(element); e.Handled = true; };
-        element.MouseMove += (_, e) =>
-        {
-            if (down is not { } start || e.LeftButton != MouseButtonState.Pressed) return;
-            if ((e.GetPosition(element) - start).Length < 4) return;
-            down = null;
-            DragOut(element, items());
-        };
-        element.MouseLeftButtonUp += (_, e) =>
-        {
-            if (down is not null) onClick?.Invoke();
-            down = null;
-            e.Handled = true;
-        };
-        element.MouseLeave += (_, e) => { if (e.LeftButton != MouseButtonState.Pressed) down = null; };
-        if (menu is not null)
-            element.MouseRightButtonUp += (_, e) =>
-            {
-                if (menu() is { } contextMenu)
-                {
-                    contextMenu.PlacementTarget = element;
-                    contextMenu.IsOpen = true;
-                }
-                e.Handled = true;
-            };
     }
 
     public void OpenList() => SetMode(BoxMode.List);

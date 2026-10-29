@@ -48,6 +48,8 @@ Name: "{userprograms}\HOPBOX 택배상자"; Filename: "{app}\Hopbox.exe"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Hopbox"; ValueData: """{app}\Hopbox.exe"""; Tasks: startup; Flags: uninsdeletevalue
+; 설치 때 고르지 않고 앱 메뉴에서 켠 자동 실행도 제거할 때 지운다
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Hopbox"; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\Hopbox.exe"; Description: "택배상자 실행"; Flags: nowait postinstall skipifsilent

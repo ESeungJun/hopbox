@@ -14,6 +14,8 @@ public sealed class ShelfStore
 {
     public static readonly TimeSpan UndoTime = TimeSpan.FromSeconds(5);
     static readonly TimeSpan ToastTime = TimeSpan.FromSeconds(1.6);
+    /// <summary>캡처 도구는 클립보드에 올리면서 파일로도 저장한다. 이 시간 안에 둘 다 들어오면 같은 캡처로 본다</summary>
+    static readonly TimeSpan SameCaptureTime = TimeSpan.FromSeconds(10);
 
     readonly string _directory;
     readonly string _imagesDirectory;
@@ -28,6 +30,12 @@ public sealed class ShelfStore
     IDisposable? _toastTimer;
     /// <summary>자동으로 담은 클립보드 이미지의 클립보드 순번</summary>
     uint? _capturedSequence;
+    /// <summary>방금 클립보드에서 담은 이미지. 같은 캡처가 파일로도 저장되면 이 항목을 그 파일로 바꾼다</summary>
+    (Guid Id, DateTime At)? _lastCopiedImage;
+    /// <summary>방금 폴더에서 담은 그림 캡처. 같은 캡처가 클립보드로 뒤늦게 들어오면 건너뛴다</summary>
+    (string Path, DateTime At)? _lastPictureCapture;
+    /// <summary>목록 파일을 읽지 못했으면 보관 파일을 정리하지 않는다 (목록에 있던 파일을 지우지 않도록)</summary>
+    bool _loadFailed;
 
     public IReadOnlyList<ShelfItem> Items => _items;
     public Toast? Toast { get; private set; }
@@ -46,7 +54,7 @@ public sealed class ShelfStore
         _now = now ?? (() => DateTime.Now);
         Directory.CreateDirectory(_imagesDirectory);
         Load();
-        RemoveOrphanImages();
+        if (!_loadFailed) RemoveOrphanImages();
     }
 
     public static string DefaultDirectory() =>
@@ -130,7 +138,21 @@ public sealed class ShelfStore
     public void AddCapture(string path)
     {
         if (_items.Any(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase))) return;
-        Insert(new() { ShelfItem.FromFile(path) }, "캡처를 담았어요");
+        var item = ShelfItem.FromFile(path);
+        if (item.IsPicture && _lastCopiedImage is { } copied && IsSameCapture(copied.At, copied.Id, path)
+            && _items.FindIndex(i => i.Id == copied.Id) is var index and >= 0)
+        {
+            // 클립보드로 먼저 담은 사본을 저장된 원본 파일로 바꾼다. 상자에는 하나만 남는다
+            var copy = _items[index];
+            _items[index] = item;
+            _lastCopiedImage = null;
+            DeleteOwnedFile(copy);
+            Save();
+            Changed?.Invoke();
+            return;
+        }
+        if (item.IsPicture) _lastPictureCapture = (path, _now());
+        Insert(new() { item }, "캡처를 담았어요");
     }
 
     /// <summary>클립보드로 찍은 스크린샷이나 다른 앱에서 복사한 이미지. 같은 클립보드를 Ctrl+V 로 또 담지 않도록 기억해 둔다</summary>
@@ -141,7 +163,31 @@ public sealed class ShelfStore
             ?? SaveImage(payload.ReadPng());
         if (saved is null) return;
         _capturedSequence = payload.ClipboardSequence;
-        Insert(new() { ShelfItem.FromImage(saved) }, "복사한 이미지를 담았어요");
+        if (_lastPictureCapture is { } capture && IsSameCapture(capture.At, null, capture.Path, saved))
+        {
+            // 방금 폴더에서 담은 캡처와 같은 것. 원본 파일이 이미 담겨 있으니 사본은 버린다
+            _lastPictureCapture = null;
+            try { System.IO.File.Delete(saved); }
+            catch (Exception) { }
+            return;
+        }
+        var item = ShelfItem.FromImage(saved);
+        _lastCopiedImage = (item.Id, _now());
+        Insert(new() { item }, "복사한 이미지를 담았어요");
+    }
+
+    /// <summary>
+    /// 클립보드 사본과 저장된 캡처 파일이 같은 캡처인지. 짧은 시간 안에 들어왔고, 둘 다 PNG 면 크기도 같아야 한다.
+    /// copiedId 가 있으면 그 항목의 파일을, 없으면 copiedPath 를 사본으로 본다
+    /// </summary>
+    bool IsSameCapture(DateTime at, Guid? copiedId, string capturePath, string? copiedPath = null)
+    {
+        if (_now() - at > SameCaptureTime) return false;
+        copiedPath ??= _items.FirstOrDefault(i => i.Id == copiedId)?.Path;
+        if (copiedPath is null) return false;
+        var copiedSize = Intake.PngSize(copiedPath);
+        var captureSize = Intake.PngSize(capturePath);
+        return copiedSize is null || captureSize is null || copiedSize == captureSize;
     }
 
     void Insert(List<ShelfItem> newItems, string message)
@@ -173,15 +219,25 @@ public sealed class ShelfStore
         try
         {
             if (file.Read() is not { Length: > 0 } data) return null;
-            var name = System.IO.Path.GetFileName(file.Name);
-            var destination = UniquePath(string.IsNullOrWhiteSpace(name) ? "파일" : name);
+            var destination = UniquePath(Intake.SafeFileName(System.IO.Path.GetFileName(file.Name)));
             System.IO.File.WriteAllBytes(destination, data);
+            MarkFromInternet(destination);
             return destination;
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 다른 앱이 넘겨준 내용으로 만든 파일에 "인터넷에서 받은 파일" 표시를 붙인다.
+    /// 그래야 상자에서 꺼내 열 때 윈도우가 실행 파일·매크로 문서를 경고한다
+    /// </summary>
+    static void MarkFromInternet(string path)
+    {
+        try { System.IO.File.WriteAllText(path + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n"); }
+        catch (Exception) { }
     }
 
     string? SaveImage(byte[]? png)
@@ -281,14 +337,18 @@ public sealed class ShelfStore
 
     void Load()
     {
+        if (!System.IO.File.Exists(ListFile)) return;
         try
         {
-            if (!System.IO.File.Exists(ListFile)) return;
             _items = JsonSerializer.Deserialize<List<ShelfItem>>(System.IO.File.ReadAllText(ListFile), JsonOptions) ?? new();
         }
         catch (Exception)
         {
+            // 망가진 목록은 덮어쓰기 전에 옆에 남겨 둔다. 보관 파일도 이번에는 정리하지 않는다
             _items = new();
+            _loadFailed = true;
+            try { System.IO.File.Copy(ListFile, ListFile + $".{_now():yyyyMMdd-HHmmss}.bak", overwrite: true); }
+            catch (Exception) { }
         }
     }
 

@@ -53,12 +53,22 @@ public static class LaunchAtLogin
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string Name = "Hopbox";
 
+    static string Command => $"\"{Environment.ProcessPath}\"";
+
+    /// <summary>지금 실행 중인 이 파일을 가리킬 때만 켜진 것으로 본다. 앱을 옮겼으면 꺼진 것으로 보여서 다시 켤 수 있다</summary>
     public static bool IsEnabled
     {
         get
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey);
-            return key?.GetValue(Name) is string;
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+                return key?.GetValue(Name) is string value && string.Equals(value, Command, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 
@@ -67,7 +77,7 @@ public static class LaunchAtLogin
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKey);
-            if (enabled) key.SetValue(Name, $"\"{Environment.ProcessPath}\"");
+            if (enabled) key.SetValue(Name, Command);
             else key.DeleteValue(Name, throwOnMissingValue: false);
             return true;
         }

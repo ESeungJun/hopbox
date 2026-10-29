@@ -9,7 +9,10 @@ public enum ItemKind
 {
     /// <summary>원본 파일을 가리키기만 한다 (복사하지 않음)</summary>
     File,
-    /// <summary>상자가 보관하는 파일. 붙여넣은 이미지, 곧 지워질 임시 파일을 상자 폴더에 복사해 둔다</summary>
+    /// <summary>
+    /// 상자가 보관하는 파일. 붙여넣은 이미지, 곧 지워질 임시 파일, 가상 파일을 상자 폴더에 복사해 둔다.
+    /// 이미지가 아닐 수도 있다(메일 첨부 pdf 등). 저장된 목록과 맞추려고 이름은 그대로 둔다
+    /// </summary>
     Image,
     Text,
 }
@@ -27,7 +30,11 @@ public sealed record ShelfItem
     public DateTime AddedAt { get; init; } = DateTime.Now;
 
     [JsonIgnore]
-    public bool Exists => Path is null ? Kind == ItemKind.Text : System.IO.File.Exists(Path);
+    public bool Exists => Path is null ? Kind == ItemKind.Text : System.IO.File.Exists(Path) || Directory.Exists(Path);
+
+    /// <summary>그림 파일인지. 클립보드에 그림으로도 올릴지, 목록에 뭐라고 적을지 정한다</summary>
+    [JsonIgnore]
+    public bool IsPicture => Path is not null && Intake.IsPicture(Path);
 
     /// <summary>목록·부채꼴에 보이는 이름</summary>
     [JsonIgnore]
@@ -81,6 +88,54 @@ public sealed record ClipPayload
 
 public static class Intake
 {
+    static readonly string[] PictureExtensions = { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".heic", ".tif", ".tiff" };
+    static readonly string[] ReservedNames =
+    {
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    public static bool IsPicture(string path) =>
+        PictureExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+
+    /// <summary>
+    /// 다른 앱이 정해 준 파일 이름을 상자 폴더에 써도 되는 이름으로 바꾼다.
+    /// 경로·스트림 구분자(\ / :)와 CON 같은 예약 이름이 그대로 들어오면 엉뚱한 곳에 써질 수 있다
+    /// </summary>
+    public static string SafeFileName(string? name)
+    {
+        var invalid = System.IO.Path.GetInvalidFileNameChars().Concat(new[] { ':', '/', '\\' }).ToHashSet();
+        var cleaned = new string((name ?? "").Select(c => invalid.Contains(c) || char.IsControl(c) ? '_' : c).ToArray())
+            .Trim().TrimEnd('.', ' ');
+        if (cleaned.Length == 0) return "파일";
+        if (cleaned.Length > 150) cleaned = cleaned[..(150 - System.IO.Path.GetExtension(cleaned).Length)] + System.IO.Path.GetExtension(cleaned);
+        var stem = System.IO.Path.GetFileNameWithoutExtension(cleaned);
+        return ReservedNames.Contains(stem.ToUpperInvariant()) ? "_" + cleaned : cleaned;
+    }
+
+    /// <summary>PNG 파일 머리에서 가로·세로 픽셀을 읽는다. PNG 가 아니면 null</summary>
+    public static (int Width, int Height)? PngSize(byte[] head)
+    {
+        byte[] signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        if (head.Length < 24 || !head.AsSpan(0, 8).SequenceEqual(signature)) return null;
+        static int BigEndian(byte[] b, int i) => (b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3];
+        return (BigEndian(head, 16), BigEndian(head, 20));
+    }
+
+    public static (int Width, int Height)? PngSize(string path)
+    {
+        try
+        {
+            using var stream = System.IO.File.OpenRead(path);
+            var head = new byte[24];
+            return stream.Read(head, 0, head.Length) == head.Length ? PngSize(head) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>시스템 임시 폴더·브라우저 캐시에 있는 파일인지. 곧 지워지므로 상자에 복사해 둔다</summary>
     public static bool IsTemporary(string path)
     {

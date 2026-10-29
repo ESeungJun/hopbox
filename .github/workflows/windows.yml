@@ -1,7 +1,8 @@
 name: windows
 
 # 윈도우판을 시험하고, x64·arm64 실행 파일과 설치 파일을 만든다.
-# 윈도우 코드가 바뀐 push 마다 돌고, v* 태그를 올리면 같은 이름의 릴리스에 파일을 붙인다.
+# 윈도우 코드가 바뀐 push 마다 돌고, v* 태그를 올리면 같은 이름의 릴리스에 파일을 붙인다(릴리스가 없으면 초안으로 만든다).
+# 쓰기 권한은 태그일 때 릴리스에 붙이는 일에만 준다. 외부 액션은 커밋 해시로 고정한다.
 on:
   workflow_dispatch:
   push:
@@ -10,17 +11,26 @@ on:
     paths: ['windows/**', '.github/workflows/windows.yml']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 8.0.x
+
+      - name: 버전 정하기
+        shell: pwsh
+        run: |
+          # 태그면 태그 버전, 아니면 시험용 0.0.0
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
+          "HOPBOX_VERSION=$version" >> $env:GITHUB_ENV
 
       - name: 시험
         run: dotnet test windows/Hopbox.Windows.Tests -c Release
@@ -30,7 +40,7 @@ jobs:
         run: |
           foreach ($arch in 'x64', 'arm64') {
             dotnet publish windows/Hopbox.Windows -c Release -r "win-$arch" --self-contained true `
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+              "-p:Version=$env:HOPBOX_VERSION" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
               -o "out/$arch"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -65,10 +75,10 @@ jobs:
           $iscc = Get-Command iscc -ErrorAction SilentlyContinue
           if (-not $iscc) {
             $candidate = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-            if (-not (Test-Path $candidate)) { choco install innosetup -y --no-progress | Out-Null }
+            if (-not (Test-Path $candidate)) { choco install innosetup --version 6.7.1 -y --no-progress | Out-Null }
             $iscc = $candidate
           } else { $iscc = $iscc.Source }
-          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '1.0.0' }
+          $version = $env:HOPBOX_VERSION
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($arch in 'x64', 'arm64') {
             & $iscc "/DArch=$arch" "/DSource=$PWD\out\$arch" "/DAppVersion=$version" "/DOutput=$PWD\dist" windows/installer/hopbox.iss
@@ -76,14 +86,28 @@ jobs:
           }
           Get-ChildItem dist | Format-Table Name, Length
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: hopbox-windows
           path: dist/*.exe
 
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: hopbox-windows
+          path: dist
+
       - name: 릴리스에 붙이기
-        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: gh release upload $env:GITHUB_REF_NAME (Get-ChildItem dist/*.exe).FullName --clobber
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG" --notes ""
+          gh release upload "$TAG" dist/*.exe --clobber

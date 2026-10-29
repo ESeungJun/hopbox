@@ -24,7 +24,10 @@ static class Transfer
     static readonly string[] ConcealedFormats = { "ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore" };
     const string HistoryFormat = "CanIncludeInClipboardHistory";
 
-    static readonly string[] ImageFormats = { Png, "image/png", DataFormats.Bitmap, DataFormats.Dib, "DeviceIndependentBitmapV5" };
+    const string DibV5 = "DeviceIndependentBitmapV5";
+    static readonly string[] ImageFormats = { Png, "image/png", DataFormats.Bitmap, DataFormats.Dib, DibV5 };
+    /// <summary>가상 파일 하나를 받을 수 있는 최대 크기. 이보다 크면 메모리에 다 올리지 않고 포기한다</summary>
+    const long MaxVirtualFileBytes = 512L * 1024 * 1024;
 
     /// <summary>담을 만한 내용이 있는지. 끌어다 놓을 때 상자가 반응할지 정한다</summary>
     public static bool CanAdd(IDataObject data)
@@ -34,10 +37,15 @@ static class Transfer
             || formats.Any(ImageFormats.Contains) || formats.Contains(DataFormats.UnicodeText);
     }
 
-    public static ClipPayload Read(IDataObject data, uint? clipboardSequence = null)
+    /// <summary>
+    /// 들어온 내용을 형식별로 정리한다.
+    /// 클립보드 자동 담기는 이미지만 보므로 readText 를 끄고 부른다. 복사할 때마다 긴 글 전체를 읽지 않도록
+    /// </summary>
+    public static ClipPayload Read(IDataObject data, uint? clipboardSequence = null, bool readText = true)
     {
         var formats = SafeFormats(data);
-        var text = formats.Contains(DataFormats.UnicodeText) ? Get(data, DataFormats.UnicodeText) as string : null;
+        var hasText = formats.Contains(DataFormats.UnicodeText);
+        var text = readText && hasText ? Get(data, DataFormats.UnicodeText) as string : null;
         return new ClipPayload
         {
             Concealed = formats.Any(ConcealedFormats.Contains) || HistoryForbidden(data, formats),
@@ -46,7 +54,8 @@ static class Transfer
             HasImage = formats.Any(ImageFormats.Contains),
             ReadPng = () => ReadPng(data, formats),
             Text = text,
-            HasRichText = formats.Contains(DataFormats.Rtf) || (formats.Contains(DataFormats.Html) && !string.IsNullOrWhiteSpace(text)),
+            HasRichText = formats.Contains(DataFormats.Rtf)
+                || (formats.Contains(DataFormats.Html) && (readText ? !string.IsNullOrWhiteSpace(text) : hasText)),
             ClipboardSequence = clipboardSequence,
         };
     }
@@ -70,20 +79,58 @@ static class Transfer
         return bytes.Length >= 4 && BitConverter.ToInt32(bytes, 0) == 0;
     }
 
-    /// <summary>PNG 형식이 있으면 그대로(투명도 유지), 없으면 비트맵을 PNG 로 바꾼다</summary>
+    /// <summary>
+    /// PNG 형식이 있으면 그대로(투명도 유지), 없으면 비트맵을 PNG 로 바꾼다.
+    /// 끌어다 놓기는 클립보드와 달리 윈도우가 DIB 를 비트맵으로 바꿔 주지 않아서 DIB 도 직접 읽는다
+    /// </summary>
     static byte[]? ReadPng(IDataObject data, HashSet<string> formats)
     {
-        foreach (var format in new[] { Png, "image/png" })
+        try
         {
-            if (formats.Contains(format) && Get(data, format) is MemoryStream stream && stream.Length > 0)
-                return stream.ToArray();
+            foreach (var format in new[] { Png, "image/png" })
+            {
+                if (formats.Contains(format) && Get(data, format) is MemoryStream stream && stream.Length > 0)
+                    return stream.ToArray();
+            }
+            var bitmap = Get(data, DataFormats.Bitmap) as BitmapSource;
+            foreach (var format in new[] { DibV5, DataFormats.Dib })
+            {
+                if (bitmap is not null) break;
+                if (formats.Contains(format) && Get(data, format) is MemoryStream dib) bitmap = DecodeDib(dib.ToArray());
+            }
+            if (bitmap is null) return null;
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var output = new MemoryStream();
+            encoder.Save(output);
+            return output.ToArray();
         }
-        if (Get(data, DataFormats.Bitmap) is not BitmapSource bitmap) return null;
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var output = new MemoryStream();
-        encoder.Save(output);
-        return output.ToArray();
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>DIB(머리 + 색표 + 픽셀) 앞에 14바이트 BMP 파일 머리를 붙여 BMP 로 읽는다</summary>
+    static BitmapSource? DecodeDib(byte[] dib)
+    {
+        if (dib.Length < 40) return null;
+        var headerSize = BitConverter.ToInt32(dib, 0);
+        var bitCount = BitConverter.ToInt16(dib, 14);
+        var compression = BitConverter.ToInt32(dib, 16);
+        var colorsUsed = BitConverter.ToInt32(dib, 32);
+        // BI_BITFIELDS(3)·BI_ALPHABITFIELDS(6) 이고 머리가 기본 크기면 색 마스크가 머리 뒤에 따로 붙는다
+        var masks = headerSize == 40 && compression is 3 or 6 ? (compression == 3 ? 12 : 16) : 0;
+        var colors = colorsUsed != 0 ? colorsUsed : bitCount <= 8 ? 1 << bitCount : 0;
+        var pixelOffset = 14 + headerSize + masks + colors * 4;
+        var file = new byte[14 + dib.Length];
+        file[0] = (byte)'B';
+        file[1] = (byte)'M';
+        BitConverter.GetBytes(file.Length).CopyTo(file, 2);
+        BitConverter.GetBytes(pixelOffset).CopyTo(file, 10);
+        dib.CopyTo(file, 14);
+        var decoder = new BmpBitmapDecoder(new MemoryStream(file), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        return decoder.Frames[0];
     }
 
     // 가상 파일: 브라우저·메신저가 실제 파일 대신 "이름 목록 + 내용" 으로 넘기는 것
@@ -91,30 +138,38 @@ static class Transfer
     static VirtualFile[] ReadVirtualFiles(IDataObject data)
     {
         if (Get(data, FileGroupDescriptor) is not MemoryStream stream || data is not ComDataObject com) return Array.Empty<VirtualFile>();
-        var names = ParseFileNames(stream.ToArray());
-        return names.Select((name, index) => new VirtualFile(name, () => ReadFileContents(com, index))).ToArray();
+        var files = ParseFileDescriptors(stream.ToArray());
+        return files.Select((file, index) => new VirtualFile(file.Name, () => ReadFileContents(com, index, file.Size))).ToArray();
     }
 
-    /// <summary>FILEGROUPDESCRIPTORW: 개수(4바이트) 뒤에 592바이트짜리 FILEDESCRIPTORW 가 이어진다. 이름은 각 항목의 72바이트 위치</summary>
-    public static List<string> ParseFileNames(byte[] descriptor)
+    /// <summary>
+    /// FILEGROUPDESCRIPTORW: 개수(4바이트) 뒤에 592바이트짜리 FILEDESCRIPTORW 가 이어진다.
+    /// 각 항목의 0바이트에 플래그, 64·68바이트에 크기(상위·하위), 72바이트에 이름이 있다. 크기는 FD_FILESIZE 플래그가 있을 때만 믿는다
+    /// </summary>
+    public static List<(string Name, long? Size)> ParseFileDescriptors(byte[] descriptor)
     {
-        const int Size = 592, NameOffset = 72, NameBytes = 520;
-        var names = new List<string>();
-        if (descriptor.Length < 4) return names;
+        const int Size = 592, FlagsOffset = 0, SizeOffset = 64, NameOffset = 72, NameBytes = 520, FileSizeFlag = 0x40;
+        var files = new List<(string, long?)>();
+        if (descriptor.Length < 4) return files;
         var count = BitConverter.ToInt32(descriptor, 0);
         for (var i = 0; i < count; i++)
         {
-            var start = 4 + i * Size + NameOffset;
-            if (start + NameBytes > descriptor.Length) break;
-            var name = Encoding.Unicode.GetString(descriptor, start, NameBytes);
+            var start = 4 + i * Size;
+            if (start + NameOffset + NameBytes > descriptor.Length) break;
+            var name = Encoding.Unicode.GetString(descriptor, start + NameOffset, NameBytes);
             var end = name.IndexOf('\0');
-            names.Add(end >= 0 ? name[..end] : name);
+            var flags = BitConverter.ToInt32(descriptor, start + FlagsOffset);
+            long? size = (flags & FileSizeFlag) != 0
+                ? ((long)BitConverter.ToUInt32(descriptor, start + SizeOffset) << 32) | BitConverter.ToUInt32(descriptor, start + SizeOffset + 4)
+                : null;
+            files.Add((end >= 0 ? name[..end] : name, size));
         }
-        return names;
+        return files;
     }
 
-    static byte[]? ReadFileContents(ComDataObject com, int index)
+    static byte[]? ReadFileContents(ComDataObject com, int index, long? size)
     {
+        if (size > MaxVirtualFileBytes) return null;
         var format = new FORMATETC
         {
             cfFormat = unchecked((short)Native.RegisterClipboardFormat(FileContents)),
@@ -130,7 +185,7 @@ static class Transfer
             {
                 return medium.tymed switch
                 {
-                    TYMED.TYMED_HGLOBAL => ReadGlobal(medium.unionmember),
+                    TYMED.TYMED_HGLOBAL => ReadGlobal(medium.unionmember, size),
                     TYMED.TYMED_ISTREAM => ReadStream(medium.unionmember),
                     _ => null,
                 };
@@ -146,12 +201,16 @@ static class Transfer
         }
     }
 
-    static byte[] ReadGlobal(IntPtr handle)
+    /// <summary>메모리 덩어리는 실제 파일보다 크게 잡혀 있을 수 있어 알려 준 크기만큼만 읽는다</summary>
+    static byte[]? ReadGlobal(IntPtr handle, long? size)
     {
+        var allocated = (long)Native.GlobalSize(handle).ToUInt64();
+        var length = Math.Min(allocated, size ?? allocated);
+        if (length > MaxVirtualFileBytes) return null;
         var pointer = Native.GlobalLock(handle);
         try
         {
-            var bytes = new byte[(int)Native.GlobalSize(handle).ToUInt64()];
+            var bytes = new byte[length];
             Marshal.Copy(pointer, bytes, 0, bytes.Length);
             return bytes;
         }
@@ -161,7 +220,7 @@ static class Transfer
         }
     }
 
-    static byte[] ReadStream(IntPtr unknown)
+    static byte[]? ReadStream(IntPtr unknown)
     {
         var stream = (IStream)Marshal.GetObjectForIUnknown(unknown);
         var countPointer = Marshal.AllocHGlobal(sizeof(int));
@@ -175,6 +234,7 @@ static class Transfer
                 var count = Marshal.ReadInt32(countPointer);
                 if (count <= 0) break;
                 output.Write(buffer, 0, count);
+                if (output.Length > MaxVirtualFileBytes) return null;
             }
             return output.ToArray();
         }
@@ -189,33 +249,37 @@ static class Transfer
 
     /// <summary>
     /// 클릭해서 복사할 때 클립보드에 올릴 내용.
-    /// 이미지는 메신저·문서가 그림을, 탐색기가 파일을 가져가도록 둘 다 올린다
+    /// 파일은 탐색기가 가져가도록 경로를 올리고, 상자가 보관한 그림은 메신저·문서가 쓰도록 그림도 함께 올린다
     /// </summary>
-    public static DataObject? ForClipboard(ShelfItem item)
+    public static DataObject ForClipboard(ShelfItem item)
     {
         var data = new DataObject();
-        switch (item.Kind)
+        if (item.Kind == ItemKind.Text)
         {
-            case ItemKind.Text:
-                data.SetText(item.Text ?? "", TextDataFormat.UnicodeText);
-                break;
-            case ItemKind.File:
-                data.SetFileDropList(new StringCollection { item.Path! });
-                break;
-            case ItemKind.Image:
-                var bytes = File.ReadAllBytes(item.Path!);
-                var decoder = BitmapDecoder.Create(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                var frame = decoder.Frames[0];
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(frame));
-                var png = new MemoryStream();
-                encoder.Save(png);
-                data.SetData(Png, png);
-                data.SetImage(frame);
-                data.SetFileDropList(new StringCollection { item.Path! });
-                break;
+            data.SetText(item.Text ?? "", TextDataFormat.UnicodeText);
+            return data;
         }
+        data.SetFileDropList(new StringCollection { item.Path! });
+        if (item.Kind == ItemKind.Image && item.IsPicture) AddPicture(data, item.Path!);
         return data;
+    }
+
+    /// <summary>그림을 읽지 못하면(깨진 파일 등) 파일 경로만 올린 채로 둔다</summary>
+    static void AddPicture(DataObject data, string path)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            var decoder = BitmapDecoder.Create(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames[0];
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(frame));
+            var png = new MemoryStream();
+            encoder.Save(png);
+            data.SetData(Png, png);
+            data.SetImage(frame);
+        }
+        catch (Exception) { }
     }
 
     /// <summary>끌어낼 때 넘길 내용. 파일은 늘 복사로 나간다</summary>

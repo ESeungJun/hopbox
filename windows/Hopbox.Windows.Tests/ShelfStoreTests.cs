@@ -57,7 +57,21 @@ public sealed class ShelfStoreTests : IDisposable
         try { Directory.Delete(_userDir, true); } catch (Exception) { }
     }
 
-    ShelfStore NewStore() => new(_dir, _timer.Schedule, () => new DateTime(2026, 10, 29, 12, 0, 0));
+    DateTime _clock = new(2026, 10, 29, 12, 0, 0);
+
+    ShelfStore NewStore() => new(_dir, _timer.Schedule, () => _clock);
+
+    /// <summary>가로·세로만 맞춘 PNG 머리. 캡처 사본과 원본이 같은 그림인지 비교할 때 쓴다</summary>
+    static byte[] PngOfSize(int width, int height)
+    {
+        var bytes = new byte[33];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(bytes, 0);
+        bytes[19] = (byte)width;
+        bytes[18] = (byte)(width >> 8);
+        bytes[23] = (byte)height;
+        bytes[22] = (byte)(height >> 8);
+        return bytes;
+    }
 
     string UserFile(string name)
     {
@@ -207,6 +221,83 @@ public sealed class ShelfStoreTests : IDisposable
     }
 
     [Fact]
+    public void 폴더도_있는_항목으로_본다()
+    {
+        Assert.True(ShelfItem.FromFile(_userDir).Exists);
+        Assert.False(ShelfItem.FromFile(Path.Combine(_userDir, "없음")).Exists);
+    }
+
+    [Fact]
+    public void 목록을_못_읽으면_보관_파일을_지우지_않고_목록을_남겨_둔다()
+    {
+        var store = NewStore();
+        store.Add(new ClipPayload { HasImage = true, ReadPng = () => Png });
+        var image = store.Items[0].Path!;
+        File.WriteAllText(Path.Combine(_dir, "items.json"), "{ 망가진 목록");
+
+        var reopened = NewStore();
+        Assert.Empty(reopened.Items);
+        Assert.True(File.Exists(image));
+        Assert.Single(Directory.GetFiles(_dir, "items.json.*.bak"));
+    }
+
+    [Fact]
+    public void 가상_파일_이름의_경로와_예약_이름을_걸러_낸다()
+    {
+        var store = NewStore();
+        store.Add(new ClipPayload { VirtualFiles = new[] { new VirtualFile("evil.txt:hidden", () => Png), new VirtualFile("CON.txt", () => Png) } });
+        Assert.All(store.Items, i => Assert.StartsWith(Path.Combine(_dir, "images"), i.Path));
+        Assert.Contains(store.Items, i => i.Title == "_CON.txt");
+        Assert.Contains(store.Items, i => i.Title == "evil.txt_hidden");
+    }
+
+    [Fact]
+    public void 클립보드_캡처_뒤에_같은_캡처_파일이_오면_하나로_합친다()
+    {
+        var store = NewStore();
+        store.AddCopiedImage(new ClipPayload { HasImage = true, ReadPng = () => PngOfSize(800, 600), ClipboardSequence = 1 });
+        var copy = store.Items.Single().Path!;
+        var capture = Path.Combine(_userDir, "스크린샷.png");
+        File.WriteAllBytes(capture, PngOfSize(800, 600));
+        _clock = _clock.AddSeconds(2);
+
+        store.AddCapture(capture);
+        Assert.Equal(capture, store.Items.Single().Path);
+        Assert.Equal(ItemKind.File, store.Items.Single().Kind);
+        Assert.False(File.Exists(copy));
+    }
+
+    [Fact]
+    public void 캡처_파일_뒤에_같은_클립보드_캡처가_오면_건너뛴다()
+    {
+        var store = NewStore();
+        var capture = Path.Combine(_userDir, "스크린샷.png");
+        File.WriteAllBytes(capture, PngOfSize(800, 600));
+        store.AddCapture(capture);
+        store.AddCopiedImage(new ClipPayload { HasImage = true, ReadPng = () => PngOfSize(800, 600), ClipboardSequence = 1 });
+        Assert.Equal(capture, store.Items.Single().Path);
+        Assert.Empty(Directory.GetFiles(Path.Combine(_dir, "images")));
+    }
+
+    [Fact]
+    public void 크기가_다르거나_시간이_지나면_다른_캡처로_본다()
+    {
+        var store = NewStore();
+        store.AddCopiedImage(new ClipPayload { HasImage = true, ReadPng = () => PngOfSize(800, 600), ClipboardSequence = 1 });
+        var other = Path.Combine(_userDir, "다른.png");
+        File.WriteAllBytes(other, PngOfSize(1920, 1080));
+        store.AddCapture(other);
+        Assert.Equal(2, store.Items.Count);
+
+        store.AddCopiedImage(new ClipPayload { HasImage = true, ReadPng = () => PngOfSize(800, 600), ClipboardSequence = 2 });
+        _clock = _clock.AddSeconds(30);
+        var late = Path.Combine(_userDir, "늦은.png");
+        File.WriteAllBytes(late, PngOfSize(800, 600));
+        store.AddCapture(late);
+        Assert.Equal(4, store.Items.Count);
+    }
+
+    [Fact]
     public void 캡처는_한_번만_담는다()
     {
         var store = NewStore();
@@ -220,6 +311,13 @@ public sealed class ShelfStoreTests : IDisposable
 
 public sealed class IntakeTests
 {
+    [Fact]
+    public void 그림_파일을_확장자로_구분한다()
+    {
+        Assert.True(Intake.IsPicture(@"C:\a\사진.PNG"));
+        Assert.False(Intake.IsPicture(@"C:\a\문서.pdf"));
+    }
+
     [Fact]
     public void 임시_폴더와_브라우저_캐시를_임시_파일로_본다()
     {
@@ -262,13 +360,31 @@ public sealed class ShortcutTests
 public sealed class TransferTests
 {
     [Fact]
-    public void 가상_파일_목록에서_이름을_읽는다()
+    public void 가상_파일_목록에서_이름과_크기를_읽는다()
     {
         var names = new[] { "고양이.png", "b.gif" };
         var bytes = new byte[4 + 592 * names.Length];
         BitConverter.GetBytes(names.Length).CopyTo(bytes, 0);
         for (var i = 0; i < names.Length; i++)
             System.Text.Encoding.Unicode.GetBytes(names[i]).CopyTo(bytes, 4 + i * 592 + 72);
-        Assert.Equal(names, Transfer.ParseFileNames(bytes));
+        // 첫 항목만 크기를 알려 준다 (FD_FILESIZE, 상위 1 · 하위 5 → 4GB + 5)
+        BitConverter.GetBytes(0x40).CopyTo(bytes, 4);
+        BitConverter.GetBytes(1u).CopyTo(bytes, 4 + 64);
+        BitConverter.GetBytes(5u).CopyTo(bytes, 4 + 68);
+
+        var files = Transfer.ParseFileDescriptors(bytes);
+        Assert.Equal(names, files.Select(f => f.Name));
+        Assert.Equal((1L << 32) + 5, files[0].Size);
+        Assert.Null(files[1].Size);
+    }
+
+    [Fact]
+    public void PNG_머리에서_크기를_읽는다()
+    {
+        var head = new byte[24];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(head, 0);
+        head[18] = 0x07; head[19] = 0x80; head[22] = 0x04; head[23] = 0x38;
+        Assert.Equal((1920, 1080), Intake.PngSize(head));
+        Assert.Null(Intake.PngSize(new byte[24]));
     }
 }

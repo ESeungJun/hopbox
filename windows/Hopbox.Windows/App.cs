@@ -17,18 +17,20 @@ static class App
         using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Hopbox-Show");
         if (!isFirst)
         {
+            // 지금 앞에 있는 건 이 프로세스라서, 켜져 있는 앱이 상자를 앞으로 가져올 수 있게 허락해 둔다
+            Native.AllowSetForegroundWindow(Native.ASFW_ANY);
             showSignal.Set();
             return;
         }
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var dispatcher = app.Dispatcher;
-        // 예상 못 한 오류는 error.log 에 남기고 끝낸다. 문제를 알려 줄 때 이 파일을 보면 된다
+        // 예상 못 한 오류는 error.log 에 남기고 계속 돈다. 상주 앱이 오류 하나로 말없이 사라지지 않도록.
+        // 문제를 알려 줄 때 이 파일을 보면 된다
         app.DispatcherUnhandledException += (_, e) =>
         {
             LogError(e.Exception);
             e.Handled = true;
-            app.Shutdown(1);
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) => LogError(e.ExceptionObject as Exception);
         var settings = Settings.Load();
@@ -50,7 +52,7 @@ static class App
         }
 
         tray.OpenBox += box.Deliver;
-        tray.EmptyBox += store.RemoveAll;
+        tray.EmptyBox += box.EmptyFromTray;
         tray.CapturesChanged += enabled =>
         {
             settings.AutoAddCaptures = enabled;
