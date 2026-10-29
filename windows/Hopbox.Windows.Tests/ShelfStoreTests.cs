@@ -343,17 +343,19 @@ public sealed class ShortcutTests
     [Fact]
     public void 기본_단축키_이름()
     {
-        Assert.Equal("Ctrl+Shift+F", Shortcut.Standard.DisplayName);
+        Assert.Equal("Ctrl+Alt+B", Shortcut.Standard.DisplayName);
         Assert.Equal("Ctrl+Alt+Win+Space", new Shortcut(0x20, Shortcut.Control | Shortcut.Alt | Shortcut.Win).DisplayName);
         Assert.Equal("Alt+F5", new Shortcut(0x74, Shortcut.Alt).DisplayName);
     }
 
     [Fact]
-    public void Ctrl_Alt_Win_중_하나가_있어야_한다()
+    public void Ctrl_Alt_Win_중_두_개가_있어야_한다()
     {
         Assert.Null(Shortcut.From(0x46, Shortcut.Shift));
-        Assert.Null(Shortcut.From(0x11, Shortcut.Control));
-        Assert.Equal(new Shortcut(0x42, Shortcut.Control | Shortcut.Shift), Shortcut.From(0x42, Shortcut.Control | Shortcut.Shift));
+        Assert.Null(Shortcut.From(0x11, Shortcut.Control | Shortcut.Alt));
+        Assert.Null(Shortcut.From(0x46, Shortcut.Control | Shortcut.Shift));
+        Assert.Equal(new Shortcut(0x42, Shortcut.Control | Shortcut.Alt), Shortcut.From(0x42, Shortcut.Control | Shortcut.Alt));
+        Assert.Equal(new Shortcut(0x42, Shortcut.Alt | Shortcut.Win | Shortcut.Shift), Shortcut.From(0x42, Shortcut.Alt | Shortcut.Win | Shortcut.Shift));
     }
 }
 

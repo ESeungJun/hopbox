@@ -1,6 +1,7 @@
 import Carbon
 
 /// 전역 단축키. Carbon 의 RegisterEventHotKey 는 손쉬운 사용 권한이 필요 없다.
+/// 다른 앱이 이미 전역으로 잡은 조합이면 등록하지 않는다(겹치면 두 앱 중 하나가 키를 못 받는다).
 final class HotKey {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
@@ -35,7 +36,7 @@ final class HotKey {
             UInt32(modifiers),
             hotKeyID,
             GetApplicationEventTarget(),
-            0,
+            OptionBits(kEventHotKeyExclusive),
             &hotKeyRef
         )
         guard registerStatus == noErr else {

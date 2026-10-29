@@ -7,8 +7,8 @@ struct Shortcut: Codable, Equatable {
     var keyCode: Int
     var modifiers: Int
 
-    /// ⇧⌘F
-    static let standard = Shortcut(keyCode: kVK_ANSI_F, modifiers: cmdKey | shiftKey)
+    /// ⌃⌥B. 전역 단축키는 다른 앱에 키가 가지 않으므로, 앱들이 거의 쓰지 않는 ⌃⌥ 조합을 쓴다
+    static let standard = Shortcut(keyCode: kVK_ANSI_B, modifiers: controlKey | optionKey)
     private static let defaultsKey = "shortcut"
 
     static var saved: Shortcut {
@@ -40,7 +40,38 @@ struct Shortcut: Codable, Equatable {
         self.modifiers = modifiers
     }
 
-    /// "⇧⌘F" 처럼 보이는 이름
+    /// 이 조합을 상자 단축키로 쓰면 안 되는 이유. 괜찮으면 nil.
+    /// 전역 단축키는 다른 앱에 키가 가지 않는다. 그래서 앱들이 즐겨 쓰는 ⌘ 조합은 받지 않고 ⌃ 에 다른 수정키를 더한 조합만 받는다.
+    /// 다른 앱이 이미 전역으로 잡은 조합은 HotKey 등록이 실패하는 것으로 걸러진다
+    var conflict: String? {
+        let modifiers = modifiers & Self.modifierMask
+        if modifiers & controlKey == 0 || modifiers == controlKey {
+            return "앱 단축키와 겹치지 않게 ⌃ 에 ⌥ · ⇧ · ⌘ 중 하나를 더해 주세요"
+        }
+        if Self.systemShortcuts().contains(Shortcut(keyCode: keyCode, modifiers: modifiers)) {
+            return "\(displayName) 는 macOS 단축키예요 (시스템 설정 › 키보드 › 키보드 단축키)"
+        }
+        return nil
+    }
+
+    private static let modifierMask = cmdKey | optionKey | controlKey | shiftKey
+
+    /// 켜져 있는 macOS 단축키(Spotlight, 스크린샷, Mission Control 등)
+    private static func systemShortcuts() -> [Shortcut] {
+        var list: Unmanaged<CFArray>?
+        guard CopySymbolicHotKeys(&list) == noErr,
+              let entries = list?.takeRetainedValue() as? [[String: Any]]
+        else { return [] }
+        return entries.compactMap { entry in
+            guard entry["kHISymbolicHotKeyEnabled"] as? Bool == true,
+                  let code = entry["kHISymbolicHotKeyCode"] as? Int,
+                  let modifiers = entry["kHISymbolicHotKeyModifiers"] as? Int
+            else { return nil }
+            return Shortcut(keyCode: code, modifiers: modifiers & modifierMask)
+        }
+    }
+
+    /// "⌃⌥B" 처럼 보이는 이름
     var displayName: String {
         var text = ""
         if modifiers & controlKey != 0 { text += "⌃" }
@@ -100,7 +131,7 @@ final class ShortcutRecorderWindow: NSWindow {
     init(current: Shortcut, onRecord: @escaping (Shortcut) -> Bool, onEnd: @escaping () -> Void) {
         model = RecorderModel(current: current)
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 190),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 210),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -119,7 +150,11 @@ final class ShortcutRecorderWindow: NSWindow {
                 return nil
             }
             guard let shortcut = Shortcut(event: event) else {
-                self.model.message = "⌘ · ⌥ · ⌃ 중 하나와 함께 눌러 주세요"
+                self.model.message = "⌃ 에 ⌥ · ⇧ · ⌘ 중 하나를 더해 눌러 주세요"
+                return nil
+            }
+            if let conflict = shortcut.conflict {
+                self.model.message = conflict
                 return nil
             }
             self.apply(shortcut, onRecord: onRecord)
@@ -135,7 +170,7 @@ final class ShortcutRecorderWindow: NSWindow {
             model.current = shortcut
             model.message = "\(shortcut.displayName) 로 바꿨어요"
         } else {
-            model.message = "\(shortcut.displayName) 는 다른 앱이 쓰고 있어요"
+            model.message = "\(shortcut.displayName) 는 다른 앱이 전역 단축키로 쓰고 있어요"
         }
     }
 
@@ -172,10 +207,12 @@ private struct RecorderView: View {
             Text(model.message)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             Button("기본값(\(Shortcut.standard.displayName))으로", action: onReset)
                 .disabled(model.current == .standard)
         }
         .padding(20)
-        .frame(width: 320, height: 190)
+        .frame(width: 320, height: 210)
     }
 }

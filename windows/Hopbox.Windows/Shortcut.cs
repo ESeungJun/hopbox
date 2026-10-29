@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Hopbox;
 
@@ -7,22 +8,27 @@ namespace Hopbox;
 public readonly record struct Shortcut(int Key, int Modifiers)
 {
     public const int Alt = 0x1, Control = 0x2, Shift = 0x4, Win = 0x8;
-    const int VkF = 0x46;
+    const int VkB = 0x42;
 
-    /// <summary>Ctrl+Shift+F</summary>
-    public static readonly Shortcut Standard = new(VkF, Control | Shift);
+    /// <summary>Ctrl+Alt+B. 전역 단축키는 다른 앱에 키가 가지 않으므로, 편집기 등이 쓰는 Ctrl+Shift 조합을 피한다</summary>
+    public static readonly Shortcut Standard = new(VkB, Control | Alt);
 
-    /// <summary>키 입력에서 단축키를 만든다. Ctrl·Alt·Win 중 하나는 있어야 한다 (Shift 만으로는 글자 입력과 겹친다)</summary>
+    /// <summary>
+    /// 키 입력에서 단축키를 만든다. Ctrl·Alt·Win 중 두 개는 있어야 한다.
+    /// 전역 단축키는 다른 앱에 키가 가지 않으므로, 편집기·브라우저가 즐겨 쓰는 Ctrl(+Shift) 하나짜리 조합은 받지 않는다.
+    /// 다른 앱이나 윈도우가 이미 잡은 조합은 RegisterHotKey 가 실패하는 것으로 걸러진다
+    /// </summary>
     public static Shortcut? From(int key, int modifiers)
     {
-        if ((modifiers & (Control | Alt | Win)) == 0) return null;
+        var main = new[] { Control, Alt, Win }.Count(m => (modifiers & m) != 0);
+        if (main < 2) return null;
         if (IsModifierKey(key)) return null;
         return new Shortcut(key, modifiers);
     }
 
     static bool IsModifierKey(int key) => key is 0x10 or 0x11 or 0x12 or 0x5B or 0x5C or 0xA0 or 0xA1 or 0xA2 or 0xA3 or 0xA4 or 0xA5;
 
-    /// <summary>"Ctrl+Shift+F" 처럼 보이는 이름</summary>
+    /// <summary>"Ctrl+Alt+B" 처럼 보이는 이름</summary>
     public string DisplayName
     {
         get

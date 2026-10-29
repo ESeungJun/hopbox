@@ -88,7 +88,7 @@ sealed class ShortcutWindow : Window
         var virtualKey = KeyInterop.VirtualKeyFromKey(key);
         if (Shortcut.From(virtualKey, modifiers) is { } shortcut) Apply(shortcut);
         else if (key is not (Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin))
-            _message.Text = "Ctrl · Alt · Win 중 하나와 함께 눌러 주세요";
+            _message.Text = "앱 단축키와 겹치지 않게 Ctrl · Alt · Win 중 두 개와 함께 눌러 주세요";
     }
 
     void Apply(Shortcut shortcut)
@@ -100,7 +100,7 @@ sealed class ShortcutWindow : Window
         }
         else
         {
-            _message.Text = $"{shortcut.DisplayName} 는 다른 앱이 쓰고 있어요";
+            _message.Text = $"{shortcut.DisplayName} 는 윈도우나 다른 앱이 이미 쓰고 있어요";
         }
         Refresh();
     }

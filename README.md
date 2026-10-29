@@ -28,7 +28,7 @@ Put things in, switch spaces, call it again, and take them out.
 
 ## How it works
 
-1. Press **⇧⌘F** (**Ctrl+Shift+F** on Windows) anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
+1. Press **⌃⌥B** (**Ctrl+Alt+B** on Windows) anywhere, even on top of a full-screen app. A parcel drops in next to your cursor.
 2. **Drop** files onto the box, or press **⌘V** (**Ctrl+V**) to put in whatever you copied: text, images, files.
 3. Switch to another space or desktop and press the shortcut again. The same box arrives there.
 4. Click the box to open it. Its contents fan out like a Dock stack.
@@ -49,6 +49,9 @@ Put things in, switch spaces, call it again, and take them out.
 - **Remembers** — the box keeps its contents across restarts. Files are referenced, not copied.
 
 Both automatic options, launch at login and the shortcut itself can be changed from the box icon in the menu bar (the notification area on Windows).
+A global shortcut keeps the keys from reaching other apps, so the box only accepts combinations that rarely clash:
+⌃ plus ⌥, ⇧ or ⌘ on Mac, and two of Ctrl, Alt and Win on Windows.
+Combinations already taken by the system or by another app's global shortcut are refused.
 
 ## Install
 
