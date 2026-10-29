@@ -3,7 +3,7 @@ import AppKit
 struct ShelfItem: Identifiable, Codable, Equatable {
     enum Kind: String, Codable {
         case file   // 원본 파일을 가리키기만 한다 (복사하지 않음)
-        case image  // 붙여넣은 이미지. 상자 폴더에 png 로 저장해 파일처럼 끌어낼 수 있게 한다
+        case image  // 상자가 보관하는 파일. 붙여넣은 이미지, 곧 지워질 임시 파일을 상자 폴더에 복사해 둔다
         case text
     }
 
@@ -103,11 +103,22 @@ final class ShelfStore: ObservableObject {
 
     // MARK: - 담기
 
+    /// 이미지로 보는 클립보드 형식. 앱마다 png·tiff 말고도 jpeg·gif·heic·webp 로 올린다
+    static let imageTypes: [NSPasteboard.PasteboardType] = [
+        .png, .tiff,
+        .init("public.jpeg"), .init("com.compuserve.gif"), .init("public.heic"),
+        .init("org.webmproject.webp"), .init("com.microsoft.bmp"),
+    ]
+
+    /// 끌어다 놓기로 받을 형식. 브라우저·Slack 은 이미지를 "파일 약속(file promise)" 으로 넘긴다
+    static let droppableTypes: [NSPasteboard.PasteboardType] =
+        [.fileURL, .URL, .string] + imageTypes + NSFilePromiseReceiver.readableDraggedTypes.map { .init($0) }
+
     func canAdd(from pasteboard: NSPasteboard) -> Bool {
-        pasteboard.canReadObject(forClasses: [NSURL.self, NSString.self, NSImage.self], options: nil)
+        pasteboard.canReadObject(forClasses: [NSURL.self, NSString.self, NSImage.self, NSFilePromiseReceiver.self], options: nil)
     }
 
-    /// 드롭과 ⌘V 가 같은 경로로 들어온다. 파일 → 이미지 → 텍스트 순으로 본다.
+    /// 드롭과 ⌘V 가 같은 경로로 들어온다. 파일 → 파일 약속 → 이미지 → 텍스트 순으로 본다.
     /// 브라우저에서 이미지를 복사하면 주소 글자가 같이 실리므로 이미지를 텍스트보다 먼저 본다.
     /// 다만 서식 있는 텍스트(rtf)가 함께 있으면 엑셀·Pages 처럼 글을 복사한 경우라 텍스트로 담는다.
     @discardableResult
@@ -123,11 +134,9 @@ final class ShelfStore: ObservableObject {
             return 0
         }
 
-        let fileURLs = pasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL] ?? []
-        let hasImage = types.contains(.png) || types.contains(.tiff)
+        let fileURLs = Self.fileURLs(in: pasteboard)
+        let promises = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil) as? [NSFilePromiseReceiver] ?? []
+        let hasImage = types.contains(where: Self.imageTypes.contains)
         let hasRichText = types.contains(.rtf) || types.contains(.rtfd)
         let string = pasteboard.string(forType: .string)
             .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
@@ -137,8 +146,15 @@ final class ShelfStore: ObservableObject {
 
         if !fileURLs.isEmpty {
             let existing = Set(items.compactMap { $0.kind == .file ? $0.path : nil })
-            newItems = fileURLs.filter { !existing.contains($0.path) }.map(ShelfItem.file)
+            newItems = fileURLs.compactMap { url in
+                // 스크린샷 미리보기·메신저가 넘겨주는 임시 파일은 곧 지워지므로 상자에 복사해 둔다
+                if Self.isTemporary(url) { return keepCopy(of: url).map(ShelfItem.image) }
+                return existing.contains(url.path) ? nil : .file(url)
+            }
             isDuplicate = newItems.isEmpty
+        } else if !promises.isEmpty {
+            receive(promises)
+            return promises.count
         } else if hasImage, !hasRichText || string == nil, let imageURL = saveImage(from: pasteboard) {
             newItems = [.image(imageURL)]
         } else if let string {
@@ -165,9 +181,12 @@ final class ShelfStore: ObservableObject {
 
     /// 클립보드로 찍은 스크린샷이나 다른 앱에서 복사한 이미지. 같은 클립보드를 ⌘V 로 또 담지 않도록 기억해 둔다
     func addCaptureFromPasteboard(_ pasteboard: NSPasteboard) {
-        guard let imageURL = saveImage(from: pasteboard) else { return }
+        // 앱이 이미지를 임시 파일로 함께 올렸으면 원래 이름과 화질 그대로 보관한다
+        let saved = Self.fileURLs(in: pasteboard).first(where: Self.isTemporary).flatMap(keepCopy(of:))
+            ?? saveImage(from: pasteboard)
+        guard let saved else { return }
         capturedChangeCount = pasteboard.changeCount
-        insert([.image(imageURL)], message: "복사한 이미지를 담았어요")
+        insert([.image(saved)], message: "복사한 이미지를 담았어요")
     }
 
     private func insert(_ newItems: [ShelfItem], message: String) {
@@ -178,11 +197,92 @@ final class ShelfStore: ObservableObject {
         showToast(message)
     }
 
+    static func fileURLs(in pasteboard: NSPasteboard) -> [URL] {
+        pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
+    /// 시스템 임시 폴더·캐시에 있는 파일인지
+    static func isTemporary(_ url: URL) -> Bool {
+        let path = url.resolvingSymlinksInPath().path
+        let temporary = URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path
+        return path.hasPrefix(temporary)
+            || path.hasPrefix("/private/var/folders/")
+            || path.hasPrefix("/private/tmp/")
+            || path.contains("/Library/Caches/")
+    }
+
+    /// 파일을 상자 보관 폴더로 복사한다. 이름이 겹치면 뒤에 짧은 꼬리표를 붙인다
+    private func keepCopy(of url: URL) -> URL? {
+        let destination = uniqueURL(named: url.lastPathComponent)
+        do {
+            try FileManager.default.copyItem(at: url, to: destination)
+            return destination
+        } catch {
+            return nil
+        }
+    }
+
+    private func uniqueURL(named name: String) -> URL {
+        var url = imagesDirectory.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: url.path) {
+            let base = (name as NSString).deletingPathExtension
+            let ext = (name as NSString).pathExtension
+            let tag = UUID().uuidString.prefix(4)
+            url = imagesDirectory.appendingPathComponent(ext.isEmpty ? "\(base) \(tag)" : "\(base) \(tag).\(ext)")
+        }
+        return url
+    }
+
+    /// 파일 약속을 받아 상자 보관 폴더에 파일을 만든다. 파일은 보내는 앱이 나중에 써 주므로 끝나면 담는다
+    private func receive(_ promises: [NSFilePromiseReceiver]) {
+        let incoming = imagesDirectory.appendingPathComponent(".incoming-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: incoming, withIntermediateDirectories: true)
+        showToast("가져오는 중…")
+        let group = DispatchGroup()
+        var received: [URL] = []
+        for promise in promises {
+            group.enter()
+            promise.receivePromisedFiles(atDestination: incoming, options: [:], operationQueue: Self.promiseQueue) { url, error in
+                DispatchQueue.main.async {
+                    if error == nil { received.append(url) }
+                    group.leave()
+                }
+            }
+        }
+        // 보내는 앱이 끝내 파일을 써 주지 않으면 기다리지 않고 알린다
+        var finished = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard !finished else { return }
+            finished = true
+            try? FileManager.default.removeItem(at: incoming)
+            self?.showToast("가져오지 못했어요")
+        }
+        group.notify(queue: .main) { [weak self] in
+            guard let self, !finished else { return }
+            finished = true
+            // 받은 파일을 보관 폴더로 옮기고 임시 폴더는 지운다
+            let kept: [URL] = received.compactMap { url in
+                let destination = self.uniqueURL(named: url.lastPathComponent)
+                return (try? FileManager.default.moveItem(at: url, to: destination)) != nil ? destination : nil
+            }
+            try? FileManager.default.removeItem(at: incoming)
+            guard !kept.isEmpty else { return self.showToast("가져오지 못했어요") }
+            self.insert(kept.map(ShelfItem.image), message: "\(kept.count)개 담았어요")
+        }
+    }
+
+    private static let promiseQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
+
     private func saveImage(from pasteboard: NSPasteboard) -> URL? {
         let pngData: Data?
         if let data = pasteboard.data(forType: .png) {
             pngData = data
-        } else if let tiff = pasteboard.data(forType: .tiff) ?? NSImage(pasteboard: pasteboard)?.tiffRepresentation,
+        } else if let image = NSImage(pasteboard: pasteboard),
+                  let tiff = image.tiffRepresentation,
                   let bitmap = NSBitmapImageRep(data: tiff) {
             pngData = bitmap.representation(using: .png, properties: [:])
         } else {
@@ -192,11 +292,7 @@ final class ShelfStore: ObservableObject {
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let stamp = formatter.string(from: Date())
-        var url = imagesDirectory.appendingPathComponent("이미지 \(stamp).png")
-        if FileManager.default.fileExists(atPath: url.path) {
-            url = imagesDirectory.appendingPathComponent("이미지 \(stamp) \(UUID().uuidString.prefix(4)).png")
-        }
+        let url = uniqueURL(named: "이미지 \(formatter.string(from: Date())).png")
         do {
             try pngData.write(to: url)
             return url
@@ -218,14 +314,14 @@ final class ShelfStore: ObservableObject {
             pasteboard.clearContents()
             pasteboard.writeObjects([url as NSURL])
         case .image:
+            guard item.exists, let url = item.url else { return showToast("보관한 파일이 없어요") }
             // 메신저·문서는 이미지 데이터를, Finder 는 파일을 가져가도록 둘 다 올린다
-            guard let url = item.url, let data = try? Data(contentsOf: url) else {
-                return showToast("이미지 파일이 없어요")
-            }
             let entry = NSPasteboardItem()
-            entry.setData(data, forType: .png)
-            if let tiff = NSImage(data: data)?.tiffRepresentation {
+            if let image = NSImage(contentsOf: url), let tiff = image.tiffRepresentation {
                 entry.setData(tiff, forType: .tiff)
+                if let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    entry.setData(png, forType: .png)
+                }
             }
             entry.setString(url.absoluteString, forType: .fileURL)
             pasteboard.clearContents()

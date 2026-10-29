@@ -90,6 +90,9 @@ private struct BoxIcon: View {
     @State private var showDust = false
     @State private var floatingCount: Int?
     @State private var floatUp = false
+    /// 도착 연출: 조금 위에서 투명하게 시작해 바닥으로 내려앉는다
+    @State private var arrivalLift: CGFloat = 0
+    @State private var arrivalOpacity: Double = 1
 
     private var isOpen: Bool { state.mode != .icon || store.isDropTargeted }
 
@@ -100,6 +103,8 @@ private struct BoxIcon: View {
                 .fill(Color.black.opacity(0.28))
                 .frame(width: 58 * stretchX, height: 9)
                 .blur(radius: 4)
+                .scaleEffect(1 - arrivalLift / 60)
+                .opacity(arrivalOpacity)
                 .offset(y: 37)
 
             if showDust { dustPuffs }
@@ -109,7 +114,8 @@ private struct BoxIcon: View {
                 .rotationEffect(.degrees(wobble ? 4 : 0), anchor: .bottom)
                 .scaleEffect(x: stretchX, y: stretchY, anchor: .bottom)
                 .scaleEffect(store.isDropTargeted ? 1.12 : 1, anchor: .bottom)
-                .offset(y: -2)
+                .offset(y: -2 - arrivalLift)
+                .opacity(arrivalOpacity)
 
             if store.isDropTargeted {
                 Image(systemName: "arrow.down")
@@ -186,13 +192,24 @@ private struct BoxIcon: View {
         }
     }
 
-    /// 택배가 툭 떨어져 내려앉는다: 납작하게 눌렸다가 튀어 오르고 먼지가 인다
+    /// 택배가 도착한다: 조금 위에서 내려와 바닥에 닿으며 살짝 눌렸다 자리 잡고, 먼지가 조금 인다
     private func landed() {
-        squash(x: 1.16, y: 0.76, settle: .spring(response: 0.38, dampingFraction: 0.38))
-        showDust = true
-        dust = false
-        withAnimation(.easeOut(duration: 0.5)) { dust = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { showDust = false }
+        arrivalLift = 22
+        arrivalOpacity = 0
+        // 시작 자세가 한 번 그려진 다음 내려앉기 시작한다
+        DispatchQueue.main.async {
+            withAnimation(.easeIn(duration: 0.2)) {
+                arrivalLift = 0
+                arrivalOpacity = 1
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            squash(x: 1.06, y: 0.92, settle: .spring(response: 0.3, dampingFraction: 0.6))
+            showDust = true
+            dust = false
+            withAnimation(.easeOut(duration: 0.45)) { dust = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showDust = false }
+        }
     }
 
     /// 상자에 담기면 살짝 눌렸다 튀어 오르고 "+N" 이 떠오른다

@@ -158,7 +158,9 @@ private struct ShelfRow: View {
         case .text:
             return "텍스트 · \(item.textLength ?? item.text?.count ?? 0)자"
         case .image:
-            return item.exists ? "붙여넣은 이미지" : "이미지 파일이 없어요"
+            guard item.exists else { return "보관한 파일이 없어요" }
+            let isImage = item.url.map { NSImage(contentsOf: $0) != nil } ?? false
+            return isImage ? "상자에 보관한 이미지" : "상자에 보관한 파일"
         case .file:
             guard item.exists else { return "원본 파일을 찾을 수 없어요" }
             let folder = item.url?.deletingLastPathComponent().path ?? ""

@@ -187,14 +187,15 @@ final class ScreenCaptureWatcher {
     }
 
     /// 이미지를 복사한 경우만 고른다.
-    /// - Finder 에서 파일을 복사하면 파일 아이콘 그림이 같이 실린다 → 파일 URL 이 있으면 제외
+    /// - Finder 에서 파일을 복사하면 파일 아이콘 그림이 같이 실린다 → 사용자 폴더의 파일 URL 이 있으면 제외
+    ///   (Slack 등은 복사한 이미지를 임시 파일로도 올리므로, 임시 파일이면 이미지로 본다)
     /// - 엑셀·Pages 는 글을 복사해도 그림을 같이 싣는다 → 서식 있는 텍스트가 있으면 제외
     static func isCopiedImage(_ pasteboard: NSPasteboard) -> Bool {
         let types = pasteboard.types ?? []
-        let hasImage = types.contains(.png) || types.contains(.tiff)
-        let excluded: [NSPasteboard.PasteboardType] = [
-            .fileURL, .rtf, .rtfd, NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"),
-        ]
-        return hasImage && !types.contains(where: excluded.contains)
+        let excluded: [NSPasteboard.PasteboardType] = [.rtf, .rtfd, .init("org.nspasteboard.ConcealedType")]
+        guard types.contains(where: ShelfStore.imageTypes.contains),
+              !types.contains(where: excluded.contains)
+        else { return false }
+        return ShelfStore.fileURLs(in: pasteboard).allSatisfy(ShelfStore.isTemporary)
     }
 }

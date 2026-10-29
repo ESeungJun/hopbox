@@ -79,41 +79,20 @@ final class ShelfPanel: NSPanel {
         deliver()
     }
 
-    /// 택배가 도착하듯 위에서 툭 떨어져 내려앉고, 담긴 게 있으면 바로 열린다
+    /// 택배가 도착하듯 제자리 위에서 살며시 내려앉고, 담긴 게 있으면 바로 열린다.
+    /// 창은 움직이지 않고 상자 그림만 움직인다. 창째 옮기면 내용이 따라오지 못해 튀어 보인다
     private func deliver() {
-        let landed = frame
-        var start = landed
-        start.origin.y += 150
-        isApplyingLayout = true
-        setFrame(start, display: false)
         alphaValue = 0
         makeKeyAndOrderFront(nil)
-
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.3
-            // 처음엔 느리고 바닥에 가까울수록 빨라지는 낙하
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.55, 0, 0.9, 0.5)
-            animator().setFrame(landed, display: true)
-            animator().alphaValue = 1
-        }, completionHandler: { [weak self] in
-            guard let self else { return }
-            self.setFrame(landed, display: true)
-            self.isApplyingLayout = false
-            self.state.landing += 1
-            Self.landingSound?.play()
-            guard !self.store.items.isEmpty else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                guard self.isVisible, self.state.mode == .icon else { return }
-                self.setMode(.fan)
-            }
-        })
+        state.landing += 1
+        // 상자가 내려앉기 전 자세를 잡은 다음 창을 보인다
+        DispatchQueue.main.async { [weak self] in self?.alphaValue = 1 }
+        guard !store.items.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self, self.isVisible, self.state.mode == .icon else { return }
+            self.setMode(.fan)
+        }
     }
-
-    private static let landingSound: NSSound? = {
-        let sound = NSSound(named: "Pop")
-        sound?.volume = 0.35
-        return sound
-    }()
 
     func hide() {
         collapseWorkItem?.cancel()
@@ -220,7 +199,7 @@ final class ShelfHostingView: NSHostingView<BoxView> {
         super.init(rootView: rootView)
         // 창 크기는 ShelfPanel 이 정한다. 내용 크기에 맞춰 창을 바꾸지 않게 한다
         sizingOptions = []
-        registerForDraggedTypes([.fileURL, .string, .png, .tiff])
+        registerForDraggedTypes(ShelfStore.droppableTypes)
     }
 
     @MainActor required init(rootView: BoxView) {
