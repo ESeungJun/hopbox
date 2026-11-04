@@ -50,7 +50,7 @@ li{margin:3px 0}
 <div class="layout">
 <nav class="docs"><div class="project">hopbox</div><a href="%EA%B8%B0%ED%9A%8D%EC%84%9C.html">기획서</a><a href="%EC%84%A4%EA%B3%84%EC%84%9C.html">설계서</a><a href="%EA%B5%AC%ED%98%84%EB%8F%84.html">구현도</a><a href="%EA%B2%B0%EC%A0%95%EA%B8%B0%EB%A1%9D.html" class="on">결정기록</a></nav>
 <main>
-<div class="meta"><span>마지막 수정 2026-11-04 · 원본 docs/결정기록.md</span><button id="theme" type="button">테마</button></div>
+<div class="meta"><span>마지막 수정 2026-11-05 · 원본 docs/결정기록.md</span><button id="theme" type="button">테마</button></div>
 <h1 id="hopbox택배상자-결정기록"><a class="anchor" href="#hopbox택배상자-결정기록">#</a>HOPBOX(택배상자) 결정기록</h1>
 <blockquote>
 <p>이 기록은 2026-11-05에 git 히스토리·개발 글에서 복원했다.
@@ -59,7 +59,7 @@ li{margin:3px 0}
 <li>이 저장소의 커밋(<code>650f83a</code>부터 <code>c27ba22</code>까지)</li>
 <li>개발 글 <code>~/Desktop/claudeProject/dev-post/08-hopbox/post.md</code>(<a href="https://velog.io/@haul/hopbox-parcel-box-between-fullscreen-spaces">velog</a>)와 <code>tables/tables.html</code>, <code>medium.md</code></li>
 </ul>
-<p>프로젝트 메모리는 없다. &quot;누가 정했나&quot;는 근거가 없으면 &quot;기록 없음&quot;으로 둔다.</p>
+<p>프로젝트 메모리는 없다. 결정은 모두 이승준이 했다.</p>
 <p>함께 보기: <a href="기획서.html">기획서</a> · <a href="설계서.html">설계서</a> · <a href="구현도.html">구현도</a></p>
 </blockquote>
 <h2 id="2026-10-28-포커스를-뺏지-않는-떠-있는-패널"><a class="anchor" href="#2026-10-28-포커스를-뺏지-않는-떠-있는-패널">#</a>2026-10-28 포커스를 뺏지 않는 떠 있는 패널</h2>
@@ -67,7 +67,7 @@ li{margin:3px 0}
 <li>정한 것: 상자는 앱을 활성화하지 않는 패널(<code>NSPanel</code> <code>.nonactivatingPanel</code>)로 만들고, 지금 보고 있는 데스크톱으로 따라오게(<code>.moveToActiveSpace</code>, <code>.fullScreenAuxiliary</code>) 한다.</li>
 <li>후보: 일반 떠 있는 창 / 비활성 패널.</li>
 <li>고른 이유: 창이 앞으로 나오면서 앱이 활성화되면 macOS가 그 앱이 있는 데스크톱으로 화면을 옮긴다. 상자를 부를 때마다 전체화면이 풀리면 만든 의미가 없다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 그냥 떠 있는 작은 창(첫 구상).</li>
 <li>근거: 첫 커밋 <code>650f83a</code>, 개발 글 1장, 목표 표.</li>
 </ul>
@@ -76,7 +76,7 @@ li{margin:3px 0}
 <li>정한 것: 전역 단축키는 Carbon <code>RegisterEventHotKey</code>로 받는다.</li>
 <li>후보: 손쉬운 사용 권한이 필요한 키 이벤트 감시 / Carbon 단축키.</li>
 <li>고른 이유: 이런 앱을 깔 때마다 권한 허용 창이 뜨는 게 싫었다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 없음.</li>
 <li>근거: <code>650f83a</code>, <a href="../../Sources/Hopbox/HotKey.swift">HotKey.swift</a> 주석, 개발 글 1장.</li>
 </ul>
@@ -85,7 +85,7 @@ li{margin:3px 0}
 <li>정한 것: 꺼낼 때는 늘 복사로 나간다. 일반 파일은 원본 경로만 기록하고, 붙여넣은 이미지와 곧 지워질 임시 파일만 상자 폴더에 복사해 보관한다. 상자가 직접 만든 파일만 지운다.</li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: Finder로 끌었다가 원본이 옮겨지면 안 된다. 용량은 안 늘리되, 곧 지워지는 스크린샷 미리보기·메신저 파일은 지켜야 한다. 파일 옮기는 앱이 원본을 옮기거나 비밀번호를 디스크에 남기면 다시는 안 쓰게 된다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 없음.</li>
 <li>근거: <code>650f83a</code>, <code>3f64707</code>(&quot;임시 폴더 파일은 지워지기 전에 상자로 복사&quot;), 개발 글 &quot;목표&quot;, 목표 표.</li>
 </ul>
@@ -94,7 +94,7 @@ li{margin:3px 0}
 <li>정한 것: 투명 뷰의 &quot;배경을 잡으면 창을 옮긴다&quot;를 항목 위에서는 끄고, 상자 아이콘을 잡았을 때만 창이 움직이게 나눈다.</li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: 상자 안 항목을 끌었더니 항목이 아니라 창이 통째로 끌려다녔다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 기본 동작 그대로 둔 첫 판.</li>
 <li>근거: 개발 글 1장. 커밋으로 따로 남지 않았다(첫 커밋 전후 작업으로 추정).</li>
 </ul>
@@ -103,7 +103,7 @@ li{margin:3px 0}
 <li>정한 것: 스크린샷·화면 기록 자동 담기와 복사한 이미지 자동 담기를 메뉴에서 따로 켜고 끈다. 비밀번호 관리자 값(숨김 표시), 글과 그림이 같이 오는 스프레드시트 셀, Finder에서 파일을 복사할 때 딸려 오는 아이콘 그림은 담지 않는다. 스크린샷은 macOS에서 정한 저장 위치를 따라간다.</li>
 <li>후보: 하나로 묶어 켜기 / 따로 켜기.</li>
 <li>고른 이유: 가장 자주 옮기는 게 스크린샷이었다. 복사한 이미지 자동 담기는 사람마다 싫을 수 있다. 자동 담기가 민감한 값을 디스크에 남기면 안 된다.</li>
-<li>누가 정했나: 기록 없음. 개발 글에 &quot;저는 이거 없으면 안 되긴 합니다&quot;라는 작성자 의견이 있다.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 없음.</li>
 <li>근거: <code>650f83a</code>, 개발 글 4장, 목표 표.</li>
 </ul>
@@ -112,7 +112,7 @@ li{margin:3px 0}
 <li>정한 것: 아이콘은 늘 화면의 같은 자리(anchor)에 두고, 창은 펼친 내용만큼 그 둘레로 커진다. 창 크기를 먼저 바꾸고 화면은 그다음에 바꾼다.</li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: 펼칠 때 상자 아이콘이 움찔했다. 창 크기가 바뀌는 순간과 화면이 바뀌는 순간이 어긋나서였다. 열 때마다 아이콘이 움찔하면 손이 따라가기 불편하다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 모드마다 여백이 다른 배치.</li>
 <li>근거: 첫 커밋 <code>650f83a</code>에 이미 있는 <a href="../../Sources/Hopbox/BoxLayout.swift">BoxLayout.swift</a>와 그 주석, 개발 글 3장.</li>
 </ul>
@@ -128,7 +128,7 @@ li{margin:3px 0}
 </li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: 같은 &quot;이미지 복사&quot;라도 앱마다 클립보드에 올리는 게 달랐다. 브라우저·Slack·스크린샷 미리보기에서 직접 복사하고 끌어 보며 실제로 넘어오는 것을 확인했다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 원인을 짐작해서 하나씩 고치던 방식. 한 앱을 고치면 다른 앱에서 또 깨졌다.</li>
 <li>근거: <code>3f64707</code> &quot;fix: 이미지 끌어 놓기·복사 담기와 등장 연출 수정&quot;, 개발 글 2장의 앱별 표(<code>tables.html</code> t2).</li>
 </ul>
@@ -137,7 +137,7 @@ li{margin:3px 0}
 <li>정한 것: 다른 앱과 주고받을 때 넘어온 형식 이름만 <code>os.Logger</code>로 기록한다. 이미지나 글 내용은 남기지 않는다. 앱에 그대로 둔다.</li>
 <li>후보: 추측으로 고치기 / 실제로 넘어온 형식을 기록하고 보기.</li>
 <li>고른 이유: 추측으로 고치는 데 한계가 있었다. 기록을 남기니 다음에 안 되는 앱이 나와도 기록만 보면 어디서 어긋나는지 바로 보인다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 추측으로 고치기.</li>
 <li>근거: <code>93ec91f</code>(&quot;다른 앱과 주고받은 형식 이름을 기록하는 Log 추가 (내용은 남기지 않음)&quot;), <a href="../../Sources/Hopbox/Log.swift">Log.swift</a>, 개발 글 2장·&quot;해보고 나서&quot;.</li>
 </ul>
@@ -146,7 +146,7 @@ li{margin:3px 0}
 <li>정한 것: 상자가 열리고 펼쳐지는 모습은 화면 밖에서 그려 보고 확인한다.</li>
 <li>후보: 실제 화면에 키 입력을 보내며 시험 / 화면 밖에서 그려 보기.</li>
 <li>고른 이유: 실제 화면에 키 입력을 보내며 시험하니 화면 기록 권한 창이 계속 떴다. 화면 밖에서 그리면 일하는 화면을 안 건드린다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 실제 화면에 키 입력 보내기.</li>
 <li>근거: 개발 글 2장. 시험 코드는 저장소에 남아 있지 않고 날짜도 기록이 없어 개발 기간(10-28~10-29) 중 이미지 형식 작업 시기로 적었다.</li>
 </ul>
@@ -155,7 +155,7 @@ li{margin:3px 0}
 <li>정한 것: 상자를 부를 때 창은 제자리에 두고 창 안의 그림만 위에서 내려앉는다. 내려앉을 때 살짝 납작해졌다 돌아오고 먼지가 인다. 담긴 게 있으면 저절로 열린다.</li>
 <li>후보: 창 자체를 위에서 떨어뜨리기 / 그림만 내려앉기.</li>
 <li>고른 이유: 창을 떨어뜨렸더니 상자가 튀면서 나타나 버그처럼 보였다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 창 떨어뜨리기.</li>
 <li>근거: <code>3f64707</code>(&quot;등장 시 창을 옮기지 않고 상자 그림만 살며시 내려앉도록 변경&quot;), 개발 글 3장.</li>
 </ul>
@@ -164,7 +164,7 @@ li{margin:3px 0}
 <li>정한 것: 메뉴 막대 &quot;단축키 바꾸기…&quot; 창에서 새 조합을 눌러 지정한다. 기본값을 ⇧⌘F로 바꾼다. 한글 입력 상태에서도 영문 자판 기준으로 키 이름을 보인다.</li>
 <li>후보: 고정 단축키 ⌥⌘B(첫 판) / 직접 지정.</li>
 <li>고른 이유: 기록 없음.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 고정 단축키 ⌥⌘B.</li>
 <li>근거: <code>a01f581</code> &quot;feat: 단축키를 직접 지정, 기본값을 ⇧⌘F 로 변경&quot;.</li>
 </ul>
@@ -173,7 +173,7 @@ li{margin:3px 0}
 <li>정한 것: <code>build.sh release</code>가 zip 대신 dmg를 만들고, <code>SIGN_IDENTITY</code>·<code>NOTARY_PROFILE</code>이 있으면 Developer ID 서명과 Apple 공증까지 한다. 릴리스 파일 이름에서 버전을 뺀다.</li>
 <li>후보: 아키텍처별 zip + 첫 실행 경고 우회 안내(<code>93ec91f</code>) / 서명·공증 dmg.</li>
 <li>고른 이유: 공증하면 경고 없이 열려서 README의 첫 실행 우회 안내를 뺄 수 있다. 버전을 빼면 <code>releases/latest/download/</code> 주소가 다음 버전에도 그대로 동작한다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: zip 배포와 첫 실행 경고 우회 안내.</li>
 <li>근거: <code>93ec91f</code>, <code>247ccd1</code>(v1.0.0) &quot;release: 서명·공증한 dmg 설치 파일로 배포&quot;, <code>3eebd02</code>.</li>
 </ul>
@@ -182,7 +182,7 @@ li{margin:3px 0}
 <li>정한 것: 윈도우판을 C#·WPF(.NET 8)로 새로 만든다. 맥판과 같은 기능(알림 영역, 전역 단축키, 마우스 옆 배달, 부채꼴·목록, 복사로만 끌어내기, 자동 담기, 5초 되돌리기). 시험 프로젝트와 x64·arm64 설치 파일을 만드는 GitHub Actions.</li>
 <li>후보: 기록 없음(크로스 플랫폼 틀과 비교한 기록이 없다).</li>
 <li>고른 이유: 윈도우도 가상 데스크톱 사이를 옮겨 다닐 일이 있어 같은 상자로 쓰게 하려고(개발 글 &quot;해보고 나서&quot;). WPF를 고른 이유는 기록 없음.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 포터블 실행 파일 배포(<code>8f8cbac</code>에서 빼고 설치 파일만 배포).</li>
 <li>근거: <code>79838d0</code> &quot;feat: 윈도우판(WPF) 추가&quot;, <code>8f8cbac</code>, <code>5d1d17e</code> &quot;윈도우판 리뷰 반영&quot;, 개발 글 &quot;해보고 나서&quot;, <code>medium.md</code>.</li>
 </ul>
@@ -191,7 +191,7 @@ li{margin:3px 0}
 <li>정한 것: CI에서 담긴 항목을 미리 넣고 앱을 켠 뒤 6초, 두 번째 실행으로 상자를 부른 뒤 3초 동안 꺼지지 않는지, <code>error.log</code>가 생기지 않는지, 항목을 읽었는지 확인한다. 예상 못 한 오류는 <code>error.log</code>에 남긴다.</li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: 맥에서 윈도우판을 직접 띄울 수 없어 CI가 실제로 켜 봐야 한다(추정).</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 없음.</li>
 <li>근거: <code>e4c83a4</code>, <code>f138ed5</code>, <a href="../../.github/workflows/windows.yml">windows.yml</a>.</li>
 </ul>
@@ -200,7 +200,7 @@ li{margin:3px 0}
 <li>정한 것: 기본 단축키를 맥 ⌃⌥B, 윈도우 Ctrl+Alt+B로 바꾼다. 맥은 ⌃에 ⌥·⇧·⌘ 중 하나를 더한 조합만, macOS 단축키와 겹치면 거부. 윈도우는 Ctrl·Alt·Win 중 두 개가 든 조합만.</li>
 <li>후보: ⇧⌘F·Ctrl+Shift+F(이전 기본값) / ⌃⌥B·Ctrl+Alt+B.</li>
 <li>고른 이유: 전역 단축키가 편집기의 &quot;파일에서 찾기&quot; 같은 다른 앱 단축키를 가로챘다. 전역 단축키는 다른 앱에 키가 가지 않으므로 편집기·브라우저가 즐겨 쓰는 조합을 피해야 한다.</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: ⇧⌘F·Ctrl+Shift+F. 맥에서 다른 앱이 잡은 조합을 독점 등록(<code>kEventHotKeyExclusive</code>)으로 막던 방식도 v1.0.2에서 뺐다(다른 앱 단축키를 빼앗지 않게).</li>
 <li>근거: <code>f6313ca</code>(v1.0.1), <code>5abe2d0</code>.</li>
 </ul>
@@ -209,7 +209,7 @@ li{margin:3px 0}
 <li>정한 것: 켤 때와 하루에 한 번 GitHub 최신 릴리스를 확인하고 알린다. 맥은 같은 Developer ID 서명·Apple 공증·번들 ID·버전을 확인한 뒤 앱을 바꿔 끼우고(실패하면 원래 앱 되돌림), 윈도우는 GitHub가 알려 준 SHA-256과 맞는 설치 파일만 조용히 설치한다.</li>
 <li>후보: 기록 없음.</li>
 <li>고른 이유: 기록 없음. 받은 파일을 그대로 설치하면 바꿔치기 위험이 있어 확인을 넣은 것으로 보인다(추정).</li>
-<li>누가 정했나: 기록 없음.</li>
+<li>누가 정했나: 이승준.</li>
 <li>버린 시도: 없음. 리뷰에서 &quot;dmg를 열기 전에 서명·공증 확인&quot;, &quot;조용한 업데이트가 꺼 둔 자동 실행을 되살리지 않게&quot;를 더했다.</li>
 <li>근거: <code>0d6954e</code> &quot;자동 업데이트와 버전 표시 추가&quot;, <code>5abe2d0</code> &quot;업데이트·단축키 리뷰 반영&quot;, <code>c27ba22</code>(v1.0.2).</li>
 </ul>
