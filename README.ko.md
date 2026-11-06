@@ -6,6 +6,7 @@
 한 화면에서 파일·글·이미지를 담고, 다른 화면에서 단축키를 누르면 거기 그대로 있습니다.</p>
 
 <p align="center"><a href="README.md">English</a> · <b>한국어</b></p>
+<p align="center">📝 만든 이야기: <a href="https://velog.io/@haul/hopbox-parcel-box-between-fullscreen-spaces">velog</a></p>
 
 <p align="center">
   <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ 맥용 받기 (애플 칩)</b></a> ·

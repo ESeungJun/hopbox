@@ -6,6 +6,7 @@
 Drop files, text and images in on one desktop, press the shortcut on another, and they're right there.</p>
 
 <p align="center"><b>English</b> · <a href="README.ko.md">한국어</a></p>
+<p align="center">📝 Story behind it: <a href="https://velog.io/@haul/hopbox-parcel-box-between-fullscreen-spaces">velog (Korean)</a></p>
 
 <p align="center">
   <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ Download for Mac (Apple silicon)</b></a> ·
