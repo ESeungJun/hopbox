@@ -5,8 +5,13 @@ import HopboxCore
 /// 상자 안의 항목을 다른 앱으로 끌어내는 영역.
 /// SwiftUI 의 onDrag 는 Finder 로 끌 때 원본을 옮겨 버릴 수 있어서, 복사만 허용하는 AppKit 드래그를 쓴다.
 struct DragSource: NSViewRepresentable {
+    /// VoiceOver 가 읽는 이름
+    var label: String
     var writers: () -> [(NSPasteboardWriting, NSImage)]
-    var onClick: () -> Void = {}
+    /// 눌렀을 때. 누른 순간의 수정키를 같이 준다 (⌘클릭으로 고르기)
+    var onClick: (NSEvent.ModifierFlags) -> Void = { _ in }
+    /// 끌어낸 것을 다른 앱이 받았을 때
+    var onSent: () -> Void = {}
     var menu: () -> NSMenu? = { nil }
 
     func makeNSView(context: Context) -> DragSourceView {
@@ -16,16 +21,41 @@ struct DragSource: NSViewRepresentable {
     func updateNSView(_ view: DragSourceView, context: Context) {
         view.writers = writers
         view.onClick = onClick
+        view.onSent = onSent
         view.makeMenu = menu
+        view.setAccessibilityLabel(label)
     }
 }
 
 final class DragSourceView: NSView, NSDraggingSource {
     var writers: () -> [(NSPasteboardWriting, NSImage)] = { [] }
-    var onClick: () -> Void = {}
+    var onClick: (NSEvent.ModifierFlags) -> Void = { _ in }
+    var onSent: () -> Void = {}
     var makeMenu: () -> NSMenu? = { nil }
 
     private var mouseDownEvent: NSEvent?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        // 입력을 받는 투명한 덮개라 이름과 누르기 동작을 따로 알려 준다
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onClick([])
+        return true
+    }
+
+    override func accessibilityPerformShowMenu() -> Bool {
+        guard let menu = makeMenu() else { return false }
+        menu.popUp(positioning: nil, at: NSPoint(x: bounds.midX, y: bounds.midY), in: self)
+        return true
+    }
 
     // 상자 창은 다른 앱을 활성화한 채로 떠 있으므로 첫 클릭부터 받아야 한다
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -57,7 +87,7 @@ final class DragSourceView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if mouseDownEvent != nil { onClick() }
+        if mouseDownEvent != nil { onClick(event.modifierFlags.intersection(.deviceIndependentFlagsMask)) }
         mouseDownEvent = nil
     }
 
@@ -74,11 +104,14 @@ final class DragSourceView: NSView, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
         Log.transfer.notice("끌어내기 끝: operation \(operation.rawValue, privacy: .public)")
+        // 받아 준 곳이 있을 때만 보냈다고 표시한다 (빈 곳에 놓으면 operation 이 비어 있다)
+        if !operation.isEmpty { onSent() }
     }
 }
 
 /// 상자 아이콘. 누르면 열고 닫고, 끌면 상자를 옮긴다.
 struct WindowHandle: NSViewRepresentable {
+    var label: String
     var onClick: () -> Void
 
     func makeNSView(context: Context) -> WindowHandleView {
@@ -87,12 +120,29 @@ struct WindowHandle: NSViewRepresentable {
 
     func updateNSView(_ view: WindowHandleView, context: Context) {
         view.onClick = onClick
+        view.setAccessibilityLabel(label)
     }
 }
 
 final class WindowHandleView: NSView {
     var onClick: () -> Void = {}
     private var mouseDownEvent: NSEvent?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityHelp("누르면 담긴 것을 펼치거나 접어요")
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onClick()
+        return true
+    }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -145,12 +195,16 @@ extension ShelfStore {
         if item.kind != .text, item.exists {
             menu.addItem(ClosureMenuItem("Finder에서 보기") { [weak self] in self?.revealInFinder(item) })
         }
+        menu.addItem(ClosureMenuItem(item.isPinned ? "고정 풀기" : "맨 위에 고정") { [weak self] in self?.togglePin(item) })
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem("상자에서 빼기") { [weak self] in self?.remove(item) })
         return menu
     }
 
+    /// 끌어낼 내용. 원본이 없어져 하나도 내보낼 수 없으면 까닭을 알린다
     func dragWriters(for items: [ShelfItem]) -> [(NSPasteboardWriting, NSImage)] {
-        items.compactMap { item in pasteboardWriter(for: item).map { ($0, dragImage(for: item)) } }
+        let writers = items.compactMap { item in pasteboardWriter(for: item).map { ($0, dragImage(for: item)) } }
+        if writers.isEmpty, !items.isEmpty { showToast("원본 파일을 찾을 수 없어요") }
+        return writers
     }
 }

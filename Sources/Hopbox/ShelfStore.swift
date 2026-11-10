@@ -538,11 +538,16 @@ final class ShelfStore: ObservableObject {
         guard !sticky else { return }
         let work = DispatchWorkItem { [weak self] in self?.toast = nil }
         toastWorkItem = work
-        let seconds = undoable ? Self.undoSeconds : max(1.6, min(4, Double(message.count) * 0.12))
+        let seconds = undoable ? Self.undoSeconds : Self.toastSeconds(message)
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
-    /// 상자가 안 보일 때 생긴 일은 모아 두었다가 다음에 띄울 때 하나씩 보여 준다
+    /// 알림이 떠 있는 시간. 긴 문구는 읽을 시간을 더 준다
+    static func toastSeconds(_ message: String) -> TimeInterval {
+        max(1.6, min(4, Double(message.count) * 0.12))
+    }
+
+    /// 상자가 안 보일 때 생긴 일은 모아 두었다가 다음에 띄울 때 차례로 보여 준다
     func queueNotice(_ message: String) {
         guard !notices.contains(message) else { return }
         notices.append(message)
@@ -550,7 +555,11 @@ final class ShelfStore: ObservableObject {
 
     func showNextNotice() {
         guard !notices.isEmpty else { return }
-        showToast(notices.removeFirst())
+        let message = notices.removeFirst()
+        showToast(message)
+        guard !notices.isEmpty else { return }
+        let seconds = Self.toastSeconds(message)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds + 0.3) { [weak self] in self?.showNextNotice() }
     }
 }
 

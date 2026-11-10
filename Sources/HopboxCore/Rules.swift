@@ -93,7 +93,48 @@ public enum UpdateRules {
     }
 }
 
+/// 상자가 떠 있을 때 키보드로 꺼내기. 부른 뒤 마우스를 잡지 않아도 끝나게 한다
 public enum KeyPick {
+    public enum Key: Equatable {
+        case digit(Int)
+        case up, down
+        case enter
+        case delete
+    }
+
+    public enum Action: Equatable {
+        /// 그 줄을 복사하고 상자를 닫는다
+        case pick(Int)
+        /// 그 줄을 고른다
+        case select(Int)
+        /// 고른 줄을 상자에서 뺀다
+        case remove(Int)
+        /// 아무 일도 없지만 키는 먹는다 (없는 줄의 숫자)
+        case swallow
+        /// 상자가 다루지 않는다
+        case pass
+    }
+
+    /// rows 는 지금 화면에 보이는 줄 수(부채꼴이면 부채꼴 줄 수, 목록이면 전부).
+    /// 부채꼴이 위로 펼쳐져 있으면 ↑ 가 다음 줄이고, 아래로 펼쳐졌거나 목록이면 ↓ 가 다음 줄이다
+    public static func action(
+        for key: Key, itemCount: Int, rows: Int, selected: Int?, nextIsUp: Bool
+    ) -> Action {
+        switch key {
+        case .digit(let digit):
+            return index(digit: digit, count: itemCount).map(Action.pick) ?? .swallow
+        case .up, .down:
+            let step = (key == .up) == nextIsUp ? 1 : -1
+            return move(selected, by: step, count: min(rows, itemCount)).map(Action.select) ?? .swallow
+        case .enter:
+            guard let selected, selected < itemCount else { return .pass }
+            return .pick(selected)
+        case .delete:
+            guard let selected, selected < itemCount else { return .pass }
+            return .remove(selected)
+        }
+    }
+
     /// 숫자 키로 고르는 줄. 1~9 는 첫째~아홉째, 0 은 열째. 그 줄이 없으면 nil
     public static func index(digit: Int, count: Int) -> Int? {
         guard (0...9).contains(digit) else { return nil }
@@ -107,7 +148,7 @@ public enum KeyPick {
         return index == 9 ? "0" : "\(index + 1)"
     }
 
-    /// ↑↓ 로 옮긴 뒤의 줄. 처음 누르면 첫 줄, 끝에서는 멈춘다
+    /// ↑↓ 로 옮긴 뒤의 줄. 처음 누르면 끝 줄을 잡고, 끝에서는 멈춘다
     public static func move(_ current: Int?, by step: Int, count: Int) -> Int? {
         guard count > 0 else { return nil }
         guard let current else { return step > 0 ? 0 : count - 1 }

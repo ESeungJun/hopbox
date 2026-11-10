@@ -148,6 +148,39 @@ final class RulesTests: XCTestCase {
         XCTAssertNil(KeyPick.move(nil, by: 1, count: 0))
     }
 
+    func test_숫자는_그줄을_꺼내고_없는줄이면_키만_먹는다() {
+        XCTAssertEqual(KeyPick.action(for: .digit(2), itemCount: 5, rows: 5, selected: nil, nextIsUp: true), .pick(1))
+        XCTAssertEqual(KeyPick.action(for: .digit(0), itemCount: 12, rows: 10, selected: nil, nextIsUp: true), .pick(9))
+        XCTAssertEqual(KeyPick.action(for: .digit(7), itemCount: 5, rows: 5, selected: nil, nextIsUp: true), .swallow)
+        // 부채꼴에 다 안 보여도 열째까지는 숫자로 꺼낸다
+        XCTAssertEqual(KeyPick.action(for: .digit(8), itemCount: 12, rows: 4, selected: nil, nextIsUp: true), .pick(7))
+    }
+
+    func test_위로_펼친_부채꼴은_위화살표가_다음줄이다() {
+        XCTAssertEqual(KeyPick.action(for: .up, itemCount: 5, rows: 5, selected: nil, nextIsUp: true), .select(0))
+        XCTAssertEqual(KeyPick.action(for: .up, itemCount: 5, rows: 5, selected: 0, nextIsUp: true), .select(1))
+        XCTAssertEqual(KeyPick.action(for: .down, itemCount: 5, rows: 5, selected: 1, nextIsUp: true), .select(0))
+    }
+
+    func test_아래로_펼쳤거나_목록이면_아래화살표가_다음줄이다() {
+        XCTAssertEqual(KeyPick.action(for: .down, itemCount: 5, rows: 5, selected: nil, nextIsUp: false), .select(0))
+        XCTAssertEqual(KeyPick.action(for: .down, itemCount: 5, rows: 5, selected: 0, nextIsUp: false), .select(1))
+        XCTAssertEqual(KeyPick.action(for: .up, itemCount: 5, rows: 5, selected: 1, nextIsUp: false), .select(0))
+    }
+
+    func test_화살표는_보이는_줄_안에서만_움직인다() {
+        XCTAssertEqual(KeyPick.action(for: .up, itemCount: 25, rows: 6, selected: 5, nextIsUp: true), .select(5))
+        XCTAssertEqual(KeyPick.action(for: .down, itemCount: 0, rows: 0, selected: nil, nextIsUp: false), .swallow)
+    }
+
+    func test_엔터와_지우기는_고른줄이_있을때만_동작한다() {
+        XCTAssertEqual(KeyPick.action(for: .enter, itemCount: 5, rows: 5, selected: 3, nextIsUp: true), .pick(3))
+        XCTAssertEqual(KeyPick.action(for: .delete, itemCount: 5, rows: 5, selected: 3, nextIsUp: true), .remove(3))
+        XCTAssertEqual(KeyPick.action(for: .enter, itemCount: 5, rows: 5, selected: nil, nextIsUp: true), .pass)
+        XCTAssertEqual(KeyPick.action(for: .delete, itemCount: 5, rows: 5, selected: nil, nextIsUp: true), .pass)
+        XCTAssertEqual(KeyPick.action(for: .delete, itemCount: 2, rows: 2, selected: 4, nextIsUp: true), .pass)
+    }
+
     // MARK: - 문구
 
     func test_하나_담으면_이름을_보여준다() {
