@@ -191,7 +191,9 @@ final class Updater {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 60
         configuration.timeoutIntervalForResource = 15 * 60
-        let (downloaded, response) = try await URLSession(configuration: configuration).download(from: source)
+        let session = URLSession(configuration: configuration)
+        defer { session.finishTasksAndInvalidate() }
+        let (downloaded, response) = try await session.download(from: source)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateError("설치 파일을 받지 못했어요") }
         try FileManager.default.moveItem(at: downloaded, to: dmg)
         // 디스크 이미지를 열기 전에 확인한다. 여는 과정도 공격받을 수 있는 곳이다

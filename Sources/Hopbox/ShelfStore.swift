@@ -66,7 +66,8 @@ final class ShelfStore: ObservableObject {
         loadState = result.state
         items = Ordering.pinnedFirst(result.items)
         if result.canCleanOrphans { storage.removeOrphanImages(keeping: items) }
-        if result.relocated || (result.state == .failed && !items.isEmpty) { save() }
+        // 되살린 목록은 원본을 .bak 으로 남겼을 때만 바로 저장한다. 남기지 못했으면 읽지 못한 원본을 덮어쓰지 않는다
+        if result.relocated || (result.state == .failed && result.backup != nil && !items.isEmpty) { save() }
         purgeExpired()
         refreshUsage()
     }
