@@ -349,6 +349,16 @@ public sealed class ShelfStore
             _loadFailed = true;
             try { System.IO.File.Copy(ListFile, ListFile + $".{_now():yyyyMMdd-HHmmss}.bak", overwrite: true); }
             catch (Exception) { }
+            // 목록은 못 읽었어도 보관 파일은 남아 있다. 다시 목록에 올려 다음에 켤 때 정리되지 않게 한다 (맥판과 같다)
+            try
+            {
+                _items = Directory.EnumerateFiles(_imagesDirectory)
+                    .Select(file => ShelfItem.FromImage(file) with { AddedAt = System.IO.File.GetLastWriteTime(file) })
+                    .OrderByDescending(item => item.AddedAt)
+                    .ToList();
+                if (_items.Count > 0) Save();
+            }
+            catch (Exception) { _items = new(); }
         }
     }
 

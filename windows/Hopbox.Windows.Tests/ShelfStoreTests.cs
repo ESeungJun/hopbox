@@ -236,9 +236,15 @@ public sealed class ShelfStoreTests : IDisposable
         File.WriteAllText(Path.Combine(_dir, "items.json"), "{ 망가진 목록");
 
         var reopened = NewStore();
-        Assert.Empty(reopened.Items);
+        // 보관 파일은 다시 목록에 오른다
+        Assert.Equal(image, Assert.Single(reopened.Items).Path);
         Assert.True(File.Exists(image));
         Assert.Single(Directory.GetFiles(_dir, "items.json.*.bak"));
+
+        // 다시 켜면 목록을 읽고 정리도 하지만, 목록에 올라 있으므로 지워지지 않는다
+        var third = NewStore();
+        Assert.Single(third.Items);
+        Assert.True(File.Exists(image));
     }
 
     [Fact]
