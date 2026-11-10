@@ -1,0 +1,37 @@
+name: macos
+
+# 맥판을 빌드하고 시험한다. 맥 코드가 바뀐 push 마다 돈다.
+# 서명·공증·dmg 는 여기서 하지 않는다(로컬 ./build.sh release). 쓰기 권한이 필요 없다.
+# v* 태그면 Info.plist 버전이 태그와 같은지도 본다. 다르면 자동 업데이트가 받은 앱을 설치하지 않는다(Updater.downloadAndReplace).
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths: ['Sources/**', 'Tests/**', 'Package.swift', 'Resources/**', '.github/workflows/macos.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: 빌드
+        run: swift build
+
+      - name: 시험
+        run: swift test
+
+      - name: 버전과 태그가 같은지
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Info.plist 버전($version)이 태그($GITHUB_REF_NAME)와 달라요"
+            exit 1
+          fi

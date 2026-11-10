@@ -34,6 +34,8 @@ Put things in, switch spaces, call it again, and take them out.
 3. Switch to another space or desktop and press the shortcut again. The same box arrives there.
 4. Click the box to open it. Its contents fan out like a Dock stack.
    **Drag** an item out to attach it, or **click** it to copy.
+5. On Mac you don't need the mouse: while the box is up, a **number key** (1–9, 0) copies that row and closes the box.
+   **↑↓** selects, **↩** copies, **⌫** removes.
 
 ## Features
 
@@ -47,8 +49,16 @@ Put things in, switch spaces, call it again, and take them out.
 - **Copied images go straight in** — images copied in Slack or a browser, and clipboard screenshots (⌃⇧⌘4 on Mac, Win+Shift+S on Windows), are added too.
   Files copied in Finder or Explorer, cells from spreadsheets and password-manager values are left alone.
 - **Undo** — removing items or emptying the box can be undone for five seconds.
+- **It hops** (Mac) — the box crouches and hops away when closed, and hops in at an angle when you call it over from another space.
+  Turn on "Follow me across spaces" (화면을 옮기면 따라오기) in the menu and the folded box comes along when you switch desktops.
+  With macOS "Reduce motion" on, the bouncing is replaced by a short fade and an outline.
+- **Pins and a shelf life** (Mac) — right-click an item to pin it to the top.
+  "Keep auto-added items" (자동으로 담긴 것 보관) can clear auto-added screenshots and copied images after 1 or 7 days (default: keep forever).
+  Things you put in yourself and pinned items are never cleared.
+- **Sent stamp** (Mac) — an item another app accepted gets a "sent" stamp; optionally it leaves the box.
+  In the list, ⌘-click and ⇧-click select several items to drag out together.
 - **Remembers** — the box keeps its contents across restarts. Files are referenced, not copied.
-- **Keeps itself up to date** — checks for a new release at launch and once a day, then installs it and relaunches when you click.
+- **Keeps itself up to date** — checks for a new release at launch and once a day. On Mac it never pops up over what you're doing: a dot on the menu bar icon and a menu item tell you, and choosing it downloads, installs and relaunches.
   On Mac it only installs an update signed with the same Developer ID and notarized by Apple; on Windows the installer must match the SHA-256 that GitHub publishes.
   The current version is shown in the menu.
 
@@ -74,7 +84,9 @@ You can check which one you have under  menu → About This Mac ("Chip" or "Proc
 Open the dmg and drag `택배상자.app` into Applications.
 It's signed with a Developer ID and notarized by Apple, so it opens without any warning.
 
-Requires macOS 13 or later. No permissions are needed: the global shortcut doesn't require Accessibility access.
+Requires macOS 13 or later. The global shortcut doesn't require Accessibility access.
+Auto-adding screenshots reads your screenshot folder (the Desktop by default), so macOS may ask whether to allow access to it.
+If you decline, the menu item says so and offers a shortcut to System Settings; you can also just turn the option off.
 
 ### Windows
 
@@ -115,11 +127,16 @@ Built together with Claude Code.
 
 ```bash
 swift build             # debug build
+swift test              # tests (needs Xcode for XCTest; if xcode-select points at the Command Line Tools:
+                        #  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test)
 ./build.sh              # build/택배상자.app
 ./build.sh install      # install to ~/Applications and launch
 ./build.sh release      # dmgs for Apple silicon and Intel (build/release)
                         # set SIGN_IDENTITY and NOTARY_PROFILE to sign and notarize
 ```
+
+The Mac build and tests also run on GitHub Actions (`.github/workflows/macos.yml`).
+When running a debug build directly, `HOPBOX_DATA_DIR=<folder>` makes it use that folder instead of the real one.
 
 The Windows app builds with the .NET 8 SDK. Installers are built by GitHub Actions (`.github/workflows/windows.yml`).
 
@@ -135,7 +152,8 @@ dotnet run --project windows/Hopbox.Windows   # run
 |---|---|
 | `Sources/Hopbox/AppDelegate.swift` | Menu bar item, global shortcut, settings |
 | `Sources/Hopbox/ShelfPanel.swift` | The floating panel: delivery animation, open/close, keyboard, drop target |
-| `Sources/Hopbox/BoxLayout.swift` | Window size and icon position for each state, so the box never jumps |
+| `Sources/HopboxCore/` | UI-free rules and storage: items (`ShelfItem`), list file and kept files (`ShelfStorage`), window size and icon position (`BoxLayout`), version compare, retention and keyboard decisions (`Rules`) |
+| `Tests/` | Mac tests (`HopboxCoreTests`, `HopboxTests`) |
 | `Sources/Hopbox/BoxView.swift` | The box icon and its animations, toasts |
 | `Sources/Hopbox/FanView.swift` | Dock-stack style fan of items |
 | `Sources/Hopbox/ShelfView.swift` | Full list view |
@@ -144,6 +162,7 @@ dotnet run --project windows/Hopbox.Windows   # run
 | `Sources/Hopbox/Shortcut.swift` | The shortcut: saved value, display name, recorder window |
 | `Sources/Hopbox/DragSource.swift` | Copy-only drag out, click vs. drag handling |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook previews |
+| `Sources/Hopbox/Theme.swift` | Colors taken from the box art, the reduce-motion setting, box art loading |
 | `Sources/Hopbox/Log.swift` | Logs which pasteboard types came and went (never the contents) |
 | `Sources/Hopbox/Updater.swift` | Checks GitHub releases, verifies the signature and notarization, swaps the app and relaunches |
 | `windows/Hopbox.Windows/` | Windows app: notification area (`Tray`), shortcut (`HotKey`, `ShortcutWindow`), box window (`BoxWindow`, `FanView`, `ListCard`), contents (`ShelfStore`), clipboard in and out (`Transfer`), auto-adding (`Watchers`), updates (`Updater`) |
