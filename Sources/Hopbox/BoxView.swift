@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HopboxCore
 
 /// 창이 지금 어떤 모양인지. 창 크기(layout)와 보이는 내용(mode)을 따로 둔다.
 /// 펼칠 때는 창을 먼저 키우고 내용을 띄우며, 접을 때는 내용을 먼저 감추고 창을 줄인다.

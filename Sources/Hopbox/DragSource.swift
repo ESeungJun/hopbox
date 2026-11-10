@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HopboxCore
 
 /// 상자 안의 항목을 다른 앱으로 끌어내는 영역.
 /// SwiftUI 의 onDrag 는 Finder 로 끌 때 원본을 옮겨 버릴 수 있어서, 복사만 허용하는 AppKit 드래그를 쓴다.

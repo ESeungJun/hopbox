@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HopboxCore
 
 /// "전체 보기". 부채꼴에 다 못 담을 만큼 많을 때 목록으로 본다.
 struct ShelfListView: View {

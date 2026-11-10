@@ -1,4 +1,5 @@
 import SwiftUI
+import HopboxCore
 
 /// 상자를 열면 담긴 것들이 Dock 스택처럼 부채꼴로 펼쳐진다.
 /// 아이콘에서 멀어질수록 바깥으로 조금씩 휘고 기운다.

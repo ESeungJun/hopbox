@@ -1,5 +1,6 @@
 import AppKit
 import Security
+import HopboxCore
 
 /// 새 버전 알림과 설치.
 /// 켤 때와 하루에 한 번 GitHub 최신 릴리스를 보고, 새 버전이 있으면 알린다. "업데이트" 를 누르면 dmg 를 받아
@@ -66,7 +67,7 @@ final class Updater {
     func check(manual: Bool) async {
         guard state != .installing else { return }
         do {
-            guard let latest = try await Self.fetchLatest(), Self.isNewer(latest.version, than: Self.currentVersion) else {
+            guard let latest = try await Self.fetchLatest(), Versioning.isNewer(latest.version, than: Self.currentVersion) else {
                 release = nil
                 state = .idle
                 if manual { show("최신 버전을 쓰고 있어요", "택배상자 \(Self.currentVersion)") }
@@ -159,18 +160,6 @@ final class Updater {
         // 이 저장소의 릴리스 파일만 받는다
         let dmg = payload.assets.first { $0.name == dmgName && $0.browserDownloadUrl.absoluteString.hasPrefix(downloadPrefix) }
         return Release(version: version, page: payload.htmlUrl, dmg: dmg?.browserDownloadUrl)
-    }
-
-    /// "1.0.10" 이 "1.0.9" 보다 새 버전이다. 숫자 단위로 비교한다
-    nonisolated static func isNewer(_ candidate: String, than current: String) -> Bool {
-        let parts = { (text: String) in text.split(separator: ".").map { Int($0) ?? 0 } }
-        let a = parts(candidate), b = parts(current)
-        for index in 0..<max(a.count, b.count) {
-            let x = index < a.count ? a[index] : 0
-            let y = index < b.count ? b[index] : 0
-            if x != y { return x > y }
-        }
-        return false
     }
 
     // MARK: - 설치

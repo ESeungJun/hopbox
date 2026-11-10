@@ -1,6 +1,7 @@
 import AppKit
 import QuickLookThumbnailing
 import SwiftUI
+import HopboxCore
 
 /// Finder 처럼 파일 내용이 보이는 미리보기. 만든 것은 경로별로 기억해 둔다.
 enum Thumbnails {

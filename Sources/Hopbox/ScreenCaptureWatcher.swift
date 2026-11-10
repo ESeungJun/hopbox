@@ -1,4 +1,5 @@
 import AppKit
+import HopboxCore
 
 /// 찍거나 복사한 것을 상자에 자동으로 담는다. 두 가지는 따로 켜고 끈다.
 /// - 스크린샷·화면 기록 파일: 스크린샷 저장 폴더(시스템 설정, 기본은 데스크톱)를 지켜본다
@@ -197,6 +198,6 @@ final class ScreenCaptureWatcher {
         guard types.contains(where: ShelfStore.imageTypes.contains),
               !types.contains(where: excluded.contains)
         else { return false }
-        return ShelfStore.fileURLs(in: pasteboard).allSatisfy(ShelfStore.isTemporary)
+        return ShelfStore.fileURLs(in: pasteboard).allSatisfy { TempPath.isTemporary($0) }
     }
 }

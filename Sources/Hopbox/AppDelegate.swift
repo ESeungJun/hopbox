@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import ServiceManagement
+import HopboxCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {

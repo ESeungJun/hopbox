@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import Combine
 import SwiftUI
+import HopboxCore
 
 /// 단축키를 누른 그 화면(전체화면 앱의 Space 포함) 위에 뜨는 상자.
 /// 다른 앱을 비활성화하지 않는 패널이라, 띄워도 전체화면 앱에서 빠져나가지 않는다.
