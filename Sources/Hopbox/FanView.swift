@@ -1,3 +1,4 @@
+import HopboxCore
 import SwiftUI
 
 /// 상자를 열면 담긴 것들이 Dock 스택처럼 부채꼴로 펼쳐진다.
@@ -7,6 +8,10 @@ struct FanView: View {
     let layout: BoxLayout
     /// 아이콘 중심. 실제 창 크기에서 계산한 값을 받는다
     let center: CGPoint
+    /// 접는 중이면 false. 줄이 상자 쪽으로 빨려 들어간다
+    let isOpen: Bool
+    /// 키보드로 고른 줄
+    let selectedIndex: Int?
     var onShowList: () -> Void
 
     @State private var appeared = false
@@ -15,17 +20,24 @@ struct FanView: View {
         let shown = Array(store.items.prefix(layout.fanRows))
         ZStack(alignment: .topLeading) {
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, item in
-                place(FanRow(store: store, item: item, iconOnRight: layout.iconOnRight), at: index)
+                place(
+                    FanRow(
+                        store: store, item: item, iconOnRight: layout.iconOnRight,
+                        keyLabel: KeyPick.label(index: index), isSelected: selectedIndex == index
+                    ),
+                    at: index, of: shown.count + 1
+                )
             }
-            place(controls(hidden: store.items.count - shown.count), at: shown.count)
+            place(controls(hidden: store.items.count - shown.count), at: shown.count, of: shown.count + 1)
         }
-        .onAppear {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) { appeared = true }
-        }
+        .allowsHitTesting(isOpen)
+        .onAppear { appeared = isOpen }
+        .onChange(of: isOpen) { appeared = $0 }
     }
 
-    /// index 번째 줄을 부채꼴 자리에 놓는다. 펼쳐질 때는 아이콘 쪽에서 날아오듯 나온다
-    private func place<Content: View>(_ content: Content, at index: Int) -> some View {
+    /// index 번째 줄을 부채꼴 자리에 놓는다. 펼쳐질 때는 아이콘 쪽에서 날아오듯 나오고,
+    /// 접을 때는 먼 줄부터 차례로 상자에 빨려 들어간다
+    private func place<Content: View>(_ content: Content, at index: Int, of count: Int) -> some View {
         let c = center
         let i = CGFloat(index)
         let up: CGFloat = layout.opensUp ? -1 : 1
@@ -37,14 +49,23 @@ struct FanView: View {
         let width = BoxLayout.fanWidth - 20
         let x = thumbX - out * (width / 2 - FanRow.thumbSize / 2)
         let angle = Double(pow(i, 1.35)) * 0.9 * Double(out) * Double(-up)
+        // 동작 줄이기면 제자리에서 흐려졌다 나타나기만 한다
+        let still = Motion.isReduced
+        let settled = appeared || still
+
+        let animation: Animation = still
+            ? .easeOut(duration: 0.12)
+            : appeared
+                ? .spring(response: 0.38, dampingFraction: 0.78).delay(Double(index) * 0.018)
+                : .easeIn(duration: 0.12).delay(Double(count - 1 - index) * 0.012)
 
         return content
             .frame(width: width, alignment: layout.iconOnRight ? .trailing : .leading)
-            .rotationEffect(.degrees(appeared ? angle : 0), anchor: layout.iconOnRight ? .trailing : .leading)
-            .scaleEffect(appeared ? 1 : 0.5, anchor: layout.iconOnRight ? .trailing : .leading)
+            .rotationEffect(.degrees(settled ? angle : 0), anchor: layout.iconOnRight ? .trailing : .leading)
+            .scaleEffect(settled ? 1 : 0.5, anchor: layout.iconOnRight ? .trailing : .leading)
             .opacity(appeared ? 1 : 0)
-            .position(x: x, y: appeared ? y : c.y)
-            .animation(.spring(response: 0.38, dampingFraction: 0.78).delay(Double(index) * 0.018), value: appeared)
+            .position(x: x, y: settled ? y : c.y)
+            .animation(animation, value: appeared)
     }
 
     private func controls(hidden: Int) -> some View {
@@ -84,6 +105,9 @@ private struct FanRow: View {
     @ObservedObject var store: ShelfStore
     let item: ShelfItem
     let iconOnRight: Bool
+    /// 이 줄을 꺼내는 숫자 키
+    let keyLabel: String?
+    let isSelected: Bool
     @State private var isHovering = false
 
     var body: some View {
@@ -96,12 +120,14 @@ private struct FanRow: View {
                 label
             }
         }
-        .opacity(item.exists ? 1 : 0.5)
+        .opacity(item.exists ? (item.isSent ? 0.7 : 1) : 0.5)
         .onHover { isHovering = $0 }
         .overlay(
             DragSource(
+                label: item.accessibilityLabel,
                 writers: { store.dragWriters(for: [item]) },
-                onClick: { store.copyToPasteboard(item) },
+                onClick: { _ in store.copyToPasteboard(item) },
+                onSent: { store.markSent([item.id]) },
                 menu: { store.contextMenu(for: item) }
             )
         )
@@ -110,29 +136,65 @@ private struct FanRow: View {
 
     private var label: some View {
         // 짧은 이름은 제 길이만큼만, 긴 이름은 300pt 에서 말줄임. 빈 자리를 눌러도 복사되지 않게 한다
-        CappedWidth(max: 300) { labelText }
+        CappedWidth(max: 300) { tag }
     }
 
-    private var labelText: some View {
-        Text(item.title)
-            .font(.system(size: 13, weight: .medium))
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(.regularMaterial)
-                    .overlay(Capsule().strokeBorder(Color.accentColor.opacity(isHovering ? 0.9 : 0), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
-            )
+    /// 운송장 딱지 모양 이름표. 왼쪽 띠 색으로 파일·보관한 것·글을 가른다
+    private var tag: some View {
+        HStack(spacing: 6) {
+            if let keyLabel {
+                Text(keyLabel)
+                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16, height: 16)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.09)))
+            }
+            if item.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.tape)
+            }
+            Text(item.title)
+                .font(.system(size: 13, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            if item.isSent { SentStamp() }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .background(alignment: .leading) {
+            ZStack(alignment: .leading) {
+                Rectangle().fill(.regularMaterial)
+                Rectangle().fill(Theme.stripe(for: item.kind)).frame(width: 4)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(Theme.tape.opacity(isSelected ? 1 : (isHovering ? 0.9 : 0)), lineWidth: isSelected ? 2 : 1.5)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
     }
 
     private var thumbnail: some View {
         ThumbnailView(item: item, size: Self.thumbSize)
             .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
-            .scaleEffect(isHovering ? 1.08 : 1)
-            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .scaleEffect((isHovering || isSelected) && !Motion.isReduced ? 1.08 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovering || isSelected)
+    }
+}
+
+/// 다른 앱으로 끌어내 받아들여진 항목에 찍는 도장
+struct SentStamp: View {
+    var body: some View {
+        Text("보냄")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(Theme.waybill)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.waybill.opacity(0.8), lineWidth: 1))
+            .rotationEffect(.degrees(-4))
     }
 }
 
@@ -151,6 +213,7 @@ private struct CircleButton: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(help)
     }
 }
 
@@ -165,5 +228,18 @@ private struct CappedWidth: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
+extension ShelfItem {
+    /// VoiceOver 가 읽는 이름
+    var accessibilityLabel: String {
+        let kindName: String
+        switch kind {
+        case .file: kindName = "파일"
+        case .image: kindName = isPicture ? "이미지" : "보관한 파일"
+        case .text: kindName = "글"
+        }
+        return [kindName, title, isPinned ? "고정됨" : nil, isSent ? "보냄" : nil].compactMap { $0 }.joined(separator: ", ")
     }
 }

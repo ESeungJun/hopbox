@@ -1,17 +1,25 @@
 import AppKit
 import QuickLookThumbnailing
 import SwiftUI
+import HopboxCore
 
-/// Finder 처럼 파일 내용이 보이는 미리보기. 만든 것은 경로별로 기억해 둔다.
+/// Finder 처럼 파일 내용이 보이는 미리보기. 만든 것은 경로와 수정 시각별로 기억해 둔다.
+/// 같은 이름으로 덮어쓴 파일은 수정 시각이 달라 새로 만든다
 enum Thumbnails {
     private static let cache = NSCache<NSString, NSImage>()
 
+    private static func key(_ path: String) -> NSString {
+        let modified = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        return "\(path)|\(modified?.timeIntervalSince1970 ?? 0)" as NSString
+    }
+
     static func cached(_ path: String) -> NSImage? {
-        cache.object(forKey: path as NSString)
+        cache.object(forKey: key(path))
     }
 
     static func load(_ path: String) async -> NSImage {
-        if let image = cached(path) { return image }
+        let key = key(path)
+        if let image = cache.object(forKey: key) { return image }
         let request = QLThumbnailGenerator.Request(
             fileAt: URL(fileURLWithPath: path),
             size: CGSize(width: 128, height: 128),
@@ -23,7 +31,7 @@ enum Thumbnails {
                 continuation.resume(returning: representation?.nsImage ?? NSWorkspace.shared.icon(forFile: path))
             }
         }
-        cache.setObject(image, forKey: path as NSString)
+        cache.setObject(image, forKey: key)
         return image
     }
 }
@@ -65,7 +73,7 @@ struct ThumbnailView: View {
             .frame(width: size * 0.8, height: size * 0.95, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(red: 1, green: 0.97, blue: 0.82))
+                    .fill(Theme.note)
                     .shadow(color: .black.opacity(0.2), radius: 1.5, y: 1)
             )
     }

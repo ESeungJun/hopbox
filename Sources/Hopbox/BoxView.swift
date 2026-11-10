@@ -1,13 +1,27 @@
 import AppKit
 import SwiftUI
+import HopboxCore
 
 /// 창이 지금 어떤 모양인지. 창 크기(layout)와 보이는 내용(mode)을 따로 둔다.
 /// 펼칠 때는 창을 먼저 키우고 내용을 띄우며, 접을 때는 내용을 먼저 감추고 창을 줄인다.
 final class BoxState: ObservableObject {
+    /// 상자가 화면에 들어오는 방식
+    enum Arrival {
+        /// 처음 부를 때: 위에서 툭 떨어진다 (배달)
+        case drop
+        /// 다른 화면에 있다가 건너올 때: 비스듬히 뛰어 들어와 한 번 되튄다 (이동)
+        case hop
+    }
+
     @Published var layout = BoxLayout()
     @Published var mode: BoxLayout.Mode = .icon
-    /// 상자가 화면에 떨어져 내려앉을 때마다 1씩 오른다
+    /// 상자가 화면에 들어올 때마다 1씩 오른다
     @Published var landing = 0
+    var arrival = Arrival.drop
+    /// 상자가 뛰어 나갈 때마다 1씩 오른다
+    @Published var departing = 0
+    /// 키보드(↑↓)로 고른 줄
+    @Published var selectedIndex: Int?
 }
 
 struct BoxActions {
@@ -28,11 +42,15 @@ struct BoxView: View {
             let center = layout.iconCenter(in: geometry.size)
 
             ZStack(alignment: .topLeading) {
-                if state.mode == .fan && layout.mode == .fan {
-                    FanView(store: store, layout: layout, center: center, onShowList: actions.showList)
+                // 접을 때는 줄이 상자로 빨려 들어간 다음 창이 준다. 그동안 부채꼴을 남겨 둔다
+                if layout.mode == .fan {
+                    FanView(
+                        store: store, layout: layout, center: center, isOpen: state.mode == .fan,
+                        selectedIndex: state.selectedIndex, onShowList: actions.showList
+                    )
                 }
                 if state.mode == .list && layout.mode == .list {
-                    ShelfListView(store: store, onClose: actions.collapse)
+                    ShelfListView(store: store, selectedIndex: state.selectedIndex, onClose: actions.collapse)
                         .frame(width: BoxLayout.listSize.width, height: BoxLayout.listSize.height)
                         .position(listCenter(layout, iconCenter: center))
                         .transition(.scale(scale: 0.92, anchor: layout.opensUp ? .bottom : .top).combined(with: .opacity))
@@ -45,7 +63,7 @@ struct BoxView: View {
                     .position(center)
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: state.mode)
+        .animation(Motion.isReduced ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.85), value: state.mode)
     }
 
     private func toastCenter(_ layout: BoxLayout, iconCenter c: CGPoint) -> CGPoint {
@@ -67,16 +85,6 @@ struct BoxView: View {
 
 // MARK: - 상자 아이콘
 
-/// 상자 그림. 앱 묶음의 Resources 에 든 png 를 쓰고, 없으면(시험 실행 등) SF Symbol 로 대신한다
-private enum BoxArt {
-    static let closed = load("box-closed")
-    static let open = load("box-open")
-
-    private static func load(_ name: String) -> NSImage? {
-        Bundle.main.url(forResource: name, withExtension: "png").flatMap(NSImage.init(contentsOf:))
-    }
-}
-
 private struct BoxIcon: View {
     @ObservedObject var store: ShelfStore
     @ObservedObject var state: BoxState
@@ -90,66 +98,94 @@ private struct BoxIcon: View {
     @State private var showDust = false
     @State private var floatingCount: Int?
     @State private var floatUp = false
-    /// 도착 연출: 조금 위에서 투명하게 시작해 바닥으로 내려앉는다
-    @State private var arrivalLift: CGFloat = 0
-    @State private var arrivalOpacity: Double = 1
+    /// 들어오고 나가는 연출: 바닥에서 떠 있는 높이, 옆으로 치우친 거리, 투명도
+    @State private var lift: CGFloat = 0
+    @State private var shift: CGFloat = 0
+    @State private var presence: Double = 1
+    /// 동작 줄이기일 때 튀는 대신 잠깐 켜지는 테두리
+    @State private var flash = false
 
     private var isOpen: Bool { state.mode != .icon || store.isDropTargeted }
+    private var showsOutline: Bool { flash || (store.isDropTargeted && Motion.isReduced) }
 
     var body: some View {
         ZStack {
-            // 바닥 그림자. 상자가 눌리면 넓게 퍼진다
+            // 바닥 그림자. 상자가 눌리면 넓게 퍼지고, 떠 있으면 작아진다
             Ellipse()
                 .fill(Color.black.opacity(0.28))
                 .frame(width: 58 * stretchX, height: 9)
                 .blur(radius: 4)
-                .scaleEffect(1 - arrivalLift / 60)
-                .opacity(arrivalOpacity)
+                .scaleEffect(max(0.3, 1 - lift / 60))
+                .opacity(presence)
                 .offset(y: 37)
 
             if showDust { dustPuffs }
 
-            boxImage
-                .frame(width: 82, height: 82)
-                .rotationEffect(.degrees(wobble ? 4 : 0), anchor: .bottom)
-                .scaleEffect(x: stretchX, y: stretchY, anchor: .bottom)
-                .scaleEffect(store.isDropTargeted ? 1.12 : 1, anchor: .bottom)
-                .offset(y: -2 - arrivalLift)
-                .opacity(arrivalOpacity)
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Theme.tape, lineWidth: 2.5)
+                .frame(width: 84, height: 84)
+                .opacity(showsOutline ? 1 : 0)
+
+            ZStack {
+                boxImage
+                    .frame(width: 82, height: 82)
+                    .rotationEffect(.degrees(wobble ? 4 : 0), anchor: .bottom)
+                    .scaleEffect(x: stretchX, y: stretchY, anchor: .bottom)
+                    .scaleEffect(store.isDropTargeted && !Motion.isReduced ? 1.12 : 1, anchor: .bottom)
+                    .offset(y: -2)
+
+                if !store.items.isEmpty {
+                    Text("\(store.items.count)")
+                        .font(.system(size: 11, weight: .bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .background(Capsule().fill(Theme.waybill).shadow(color: .black.opacity(0.2), radius: 2, y: 1))
+                        .offset(x: 30, y: -30)
+                }
+
+                if store.receiving > 0 {
+                    // 다른 앱이 파일을 써 주는 중
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(3)
+                        .background(Circle().fill(.regularMaterial))
+                        .offset(x: -30, y: -30)
+                        .transition(.opacity)
+                }
+            }
+            .offset(x: shift, y: -lift)
+            .opacity(presence)
 
             if store.isDropTargeted {
                 Image(systemName: "arrow.down")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.tape)
                     .offset(y: -46)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            if !store.items.isEmpty {
-                Text("\(store.items.count)")
-                    .font(.system(size: 11, weight: .bold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .contentTransition(.numericText())
-                    .padding(.horizontal, 6)
-                    .frame(minWidth: 20, minHeight: 20)
-                    .background(Capsule().fill(Color(red: 0.86, green: 0.24, blue: 0.2)).shadow(color: .black.opacity(0.2), radius: 2, y: 1))
-                    .offset(x: 30, y: -30)
+                    .transition(Motion.isReduced ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
 
             if let floatingCount {
                 Text("+\(floatingCount)")
                     .font(.system(size: 14, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.accentColor)
-                    .offset(y: floatUp ? -58 : -26)
+                    .foregroundStyle(Theme.tape)
+                    .offset(y: floatUp && !Motion.isReduced ? -58 : (Motion.isReduced ? -50 : -26))
                     .opacity(floatUp ? 0 : 1)
             }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.5), value: store.isDropTargeted)
         .animation(.spring(response: 0.28, dampingFraction: 0.7), value: isOpen)
+        .animation(.easeOut(duration: 0.15), value: showsOutline)
+        .animation(.easeOut(duration: 0.15), value: store.receiving > 0)
         .contentShape(Rectangle().inset(by: 12))
-        .overlay(WindowHandle(onClick: onClick).frame(width: 72, height: 72))
+        .overlay(
+            WindowHandle(label: "택배상자, 담긴 것 \(store.items.count)개", onClick: onClick)
+                .frame(width: 72, height: 72)
+        )
         .help("누르면 열고 닫아요 · 끌면 상자를 옮겨요")
         .onChange(of: store.isDropTargeted) { targeted in
+            guard !Motion.isReduced else { return }
             if targeted {
                 withAnimation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true)) { wobble = true }
             } else {
@@ -158,6 +194,15 @@ private struct BoxIcon: View {
         }
         .onChange(of: store.addPulse) { _ in received() }
         .onChange(of: state.landing) { _ in landed() }
+        .onChange(of: state.departing) { _ in departed() }
+        .onChange(of: state.mode) { mode in
+            // 줄이 다 빨려 들어오면 상자가 한 번 작게 눌린다
+            guard mode == .icon, !Motion.isReduced else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                guard state.mode == .icon, presence == 1 else { return }
+                squash(x: 1.02, y: 0.96, settle: .spring(response: 0.25, dampingFraction: 0.6))
+            }
+        }
     }
 
     @ViewBuilder
@@ -172,7 +217,7 @@ private struct BoxIcon: View {
         } else {
             Image(systemName: isOpen ? "shippingbox.and.arrow.backward.fill" : "shippingbox.fill")
                 .font(.system(size: 40))
-                .foregroundStyle(Color(red: 0.76, green: 0.55, blue: 0.33))
+                .foregroundStyle(Theme.cardboard)
         }
     }
 
@@ -183,7 +228,7 @@ private struct BoxIcon: View {
                 let side: CGFloat = index.isMultiple(of: 2) ? 1 : -1
                 let spread = CGFloat(index / 2 + 1)
                 Circle()
-                    .fill(Color(red: 0.8, green: 0.72, blue: 0.6).opacity(0.7))
+                    .fill(Theme.dust.opacity(0.7))
                     .frame(width: 7 + spread * 2, height: 7 + spread * 2)
                     .offset(x: side * (dust ? 18 + spread * 9 : 10), y: dust ? 30 - spread * 3 : 34)
                     .opacity(dust ? 0 : 0.9)
@@ -192,33 +237,102 @@ private struct BoxIcon: View {
         }
     }
 
-    /// 택배가 도착한다: 조금 위에서 내려와 바닥에 닿으며 살짝 눌렸다 자리 잡고, 먼지가 조금 인다
+    /// 상자가 들어온다. 처음 부르면 위에서 툭 떨어지고(배달), 다른 화면에서 건너오면 비스듬히 뛰어 들어온다(이동)
     private func landed() {
-        arrivalLift = 22
-        arrivalOpacity = 0
+        stretchX = 1
+        stretchY = 1
+        shift = 0
+        guard !Motion.isReduced else {
+            lift = 0
+            presence = 0
+            DispatchQueue.main.async {
+                withAnimation(.easeOut(duration: 0.12)) { presence = 1 }
+            }
+            return
+        }
+        switch state.arrival {
+        case .drop: drop()
+        case .hop: hopIn()
+        }
+    }
+
+    /// 조금 위에서 내려와 바닥에 닿으며 살짝 눌렸다 자리 잡고, 먼지가 조금 인다
+    private func drop() {
+        lift = 22
+        presence = 0
         // 시작 자세가 한 번 그려진 다음 내려앉기 시작한다
         DispatchQueue.main.async {
             withAnimation(.easeIn(duration: 0.2)) {
-                arrivalLift = 0
-                arrivalOpacity = 1
+                lift = 0
+                presence = 1
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             squash(x: 1.06, y: 0.92, settle: .spring(response: 0.3, dampingFraction: 0.6))
-            showDust = true
-            dust = false
-            withAnimation(.easeOut(duration: 0.45)) { dust = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showDust = false }
+            puffDust()
         }
     }
 
-    /// 상자에 담기면 살짝 눌렸다 튀어 오르고 "+N" 이 떠오른다
+    /// 더 높은 곳에서 옆으로 치우쳐 포물선으로 들어와, 닿으면 눌렸다가 한 번 작게 되튄다
+    private func hopIn() {
+        let side: CGFloat = state.layout.iconOnRight ? 1 : -1
+        lift = 48
+        shift = 12 * side
+        presence = 0
+        DispatchQueue.main.async {
+            // 세로는 점점 빠르게, 가로는 일정하게 움직여 포물선이 된다
+            withAnimation(.easeIn(duration: 0.22)) { lift = 0 }
+            withAnimation(.linear(duration: 0.22)) { shift = 0 }
+            withAnimation(.easeOut(duration: 0.1)) { presence = 1 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            squash(x: 1.07, y: 0.9, settle: .spring(response: 0.26, dampingFraction: 0.55))
+            withAnimation(.easeOut(duration: 0.09)) { lift = 6 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.31) {
+            withAnimation(.easeIn(duration: 0.09)) { lift = 0 }
+        }
+    }
+
+    /// 깡충 뛰어 나간다: 잠깐 움츠렸다가 위로 뛰며 사라진다
+    private func departed() {
+        guard !Motion.isReduced else {
+            withAnimation(.easeOut(duration: 0.12)) { presence = 0 }
+            return
+        }
+        withAnimation(.easeOut(duration: 0.06)) {
+            stretchX = 1.05
+            stretchY = 0.94
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+            withAnimation(.easeOut(duration: 0.14)) {
+                stretchX = 0.97
+                stretchY = 1.05
+                lift = 28
+                presence = 0
+            }
+        }
+    }
+
+    private func puffDust() {
+        showDust = true
+        dust = false
+        withAnimation(.easeOut(duration: 0.45)) { dust = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showDust = false }
+    }
+
+    /// 상자에 담기면 살짝 눌렸다 튀어 오르고 "+N" 이 떠오른다. 동작 줄이기면 테두리만 잠깐 켠다
     private func received() {
-        squash(x: 1.08, y: 0.86, settle: .spring(response: 0.35, dampingFraction: 0.4))
         floatingCount = store.lastAddedCount
         floatUp = false
         withAnimation(.easeOut(duration: 0.8)) { floatUp = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { floatingCount = nil }
+        guard !Motion.isReduced else {
+            flash = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { flash = false }
+            return
+        }
+        squash(x: 1.08, y: 0.86, settle: .spring(response: 0.35, dampingFraction: 0.4))
     }
 
     private func squash(x: CGFloat, y: CGFloat, settle: Animation) {
@@ -248,7 +362,8 @@ private struct ToastView: View {
                 HStack(spacing: 10) {
                     Text(toast.message)
                         .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if toast.undoable {
                         Button("되돌리기") { store.undoRemove() }
                             .buttonStyle(.borderless)
@@ -259,7 +374,12 @@ private struct ToastView: View {
                 .padding(.vertical, 7)
                 .background(Capsule().fill(.regularMaterial).shadow(color: .black.opacity(0.18), radius: 5, y: 2))
                 .id(toast.id)
-                .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: alignTrailing ? .trailing : .leading)))
+                .transition(
+                    Motion.isReduced
+                        ? .opacity
+                        : .opacity.combined(with: .scale(scale: 0.9, anchor: alignTrailing ? .trailing : .leading))
+                )
+                .accessibilityAddTraits(.updatesFrequently)
             }
         }
         .animation(.easeOut(duration: 0.18), value: store.toast)

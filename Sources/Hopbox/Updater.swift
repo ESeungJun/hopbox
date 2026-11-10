@@ -1,8 +1,10 @@
 import AppKit
 import Security
+import HopboxCore
 
 /// 새 버전 알림과 설치.
-/// 켤 때와 하루에 한 번 GitHub 최신 릴리스를 보고, 새 버전이 있으면 알린다. "업데이트" 를 누르면 dmg 를 받아
+/// 켤 때와 하루에 한 번 GitHub 최신 릴리스를 본다. 저절로 확인했을 때는 창을 띄우지 않고 메뉴 막대 아이콘과
+/// 메뉴 항목으로만 알린다 (쓰던 앱에서 포커스를 가져오지 않게). 메뉴에서 "설치" 를 누르면 dmg 를 받아
 /// 지금 앱 자리에 바꿔 끼우고 다시 켠다. 받은 앱은 내 Developer ID 서명과 Apple 공증이 확인될 때만 설치한다.
 @MainActor
 final class Updater {
@@ -27,7 +29,7 @@ final class Updater {
     nonisolated private static let teamRequirement = #"anchor apple generic and certificate leaf[subject.OU] = "CCX6HUC3AC""#
     nonisolated private static let appRequirement = #"anchor apple generic and identifier "com.haul.hopbox" and certificate leaf[subject.OU] = "CCX6HUC3AC""#
     nonisolated private static let checkInterval: TimeInterval = 24 * 60 * 60
-    /// 같은 버전은 저절로 한 번만 알린다. 그 뒤로는 메뉴에서 설치할 수 있다
+    /// 같은 버전은 상자 알림으로 한 번만 알린다. 메뉴 표시는 설치할 때까지 남는다
     nonisolated private static let notifiedKey = "notifiedUpdateVersion"
     #if arch(arm64)
     nonisolated private static let dmgName = "Hopbox-macOS-apple-silicon.dmg"
@@ -39,8 +41,13 @@ final class Updater {
     private var release: Release?
     private var timer: Timer?
     var onChange: (() -> Void)?
-    /// 저절로 알림을 띄워도 되는지. 상자를 쓰는 중에는 띄우지 않는다
-    var canInterrupt: () -> Bool = { true }
+    /// 저절로 확인하다 새 버전을 찾았을 때. 다음에 상자를 부르면 알림 자리에 한 번 보여 준다
+    var onFound: ((String) -> Void)?
+
+    var availableVersion: String? {
+        if case .available(let version) = state { return version }
+        return nil
+    }
 
     func start() {
         // Info.plist 없이 실행한 개발 빌드(swift run)는 버전을 몰라 확인하지 않는다
@@ -66,7 +73,7 @@ final class Updater {
     func check(manual: Bool) async {
         guard state != .installing else { return }
         do {
-            guard let latest = try await Self.fetchLatest(), Self.isNewer(latest.version, than: Self.currentVersion) else {
+            guard let latest = try await Self.fetchLatest(), Versioning.isNewer(latest.version, than: Self.currentVersion) else {
                 release = nil
                 state = .idle
                 if manual { show("최신 버전을 쓰고 있어요", "택배상자 \(Self.currentVersion)") }
@@ -82,9 +89,11 @@ final class Updater {
             release = latest
             state = .available(latest.version)
             let defaults = UserDefaults.standard
-            if manual || (defaults.string(forKey: Self.notifiedKey) != latest.version && canInterrupt()) {
-                defaults.set(latest.version, forKey: Self.notifiedKey)
+            if manual {
                 ask(latest)
+            } else if defaults.string(forKey: Self.notifiedKey) != latest.version {
+                defaults.set(latest.version, forKey: Self.notifiedKey)
+                onFound?(latest.version)
             }
         } catch {
             if manual { show("업데이트를 확인하지 못했어요", error.localizedDescription) }
@@ -109,7 +118,7 @@ final class Updater {
         state = .installing
         Task {
             do {
-                try await Task.detached { try Self.downloadAndReplace(release) }.value
+                try await Task.detached { try await Self.downloadAndReplace(release) }.value
                 Self.relaunch()
             } catch {
                 state = .available(release.version)
@@ -123,7 +132,7 @@ final class Updater {
         }
     }
 
-    /// 알림 창을 앞으로 띄우고 누른 버튼을 돌려준다
+    /// 알림 창을 앞으로 띄우고 누른 버튼을 돌려준다. 사용자가 메뉴를 눌러 시작한 흐름에서만 부른다
     @discardableResult
     private func show(_ message: String, _ detail: String, buttons: [String] = []) -> NSApplication.ModalResponse {
         NSApp.activate(ignoringOtherApps: true)
@@ -161,37 +170,32 @@ final class Updater {
         return Release(version: version, page: payload.htmlUrl, dmg: dmg?.browserDownloadUrl)
     }
 
-    /// "1.0.10" 이 "1.0.9" 보다 새 버전이다. 숫자 단위로 비교한다
-    nonisolated static func isNewer(_ candidate: String, than current: String) -> Bool {
-        let parts = { (text: String) in text.split(separator: ".").map { Int($0) ?? 0 } }
-        let a = parts(candidate), b = parts(current)
-        for index in 0..<max(a.count, b.count) {
-            let x = index < a.count ? a[index] : 0
-            let y = index < b.count ? b[index] : 0
-            if x != y { return x > y }
-        }
-        return false
-    }
-
     // MARK: - 설치
 
     /// dmg 를 받아 서명·공증을 확인하고 연다. 새 앱을 지금 앱 옆에 복사해 다시 서명·공증·버전을 확인한 뒤 지금 앱과 바꿔 끼운다
-    nonisolated private static func downloadAndReplace(_ release: Release) throws {
+    nonisolated private static func downloadAndReplace(_ release: Release) async throws {
         guard let source = release.dmg else { throw UpdateError("이 맥에 맞는 설치 파일이 릴리스에 없어요") }
         let current = Bundle.main.bundleURL
         guard current.pathExtension == "app" else { throw UpdateError("앱 번들로 실행 중이 아니에요") }
         let folder = current.deletingLastPathComponent()
         guard FileManager.default.isWritableFile(atPath: folder.path) else {
-            throw UpdateError("\(folder.path) 폴더에 쓸 수 없어요")
+            throw UpdateError(UpdateRules.unwritableMessage(folder: folder.path))
         }
 
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("hopbox-update-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: work) }
 
+        // 메모리에 올리지 않고 파일로 받는다. 응답이 60초 동안 없으면 그만둔다
         let dmg = work.appendingPathComponent(dmgName)
-        let data = try Data(contentsOf: source)
-        try data.write(to: dmg)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForResource = 15 * 60
+        let session = URLSession(configuration: configuration)
+        defer { session.finishTasksAndInvalidate() }
+        let (downloaded, response) = try await session.download(from: source)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateError("설치 파일을 받지 못했어요") }
+        try FileManager.default.moveItem(at: downloaded, to: dmg)
         // 디스크 이미지를 열기 전에 확인한다. 여는 과정도 공격받을 수 있는 곳이다
         try verify(dmg, requirement: teamRequirement, assessmentType: "open")
 

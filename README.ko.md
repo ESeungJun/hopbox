@@ -6,6 +6,7 @@
 한 화면에서 파일·글·이미지를 담고, 다른 화면에서 단축키를 누르면 거기 그대로 있습니다.</p>
 
 <p align="center"><a href="README.md">English</a> · <b>한국어</b></p>
+<p align="center">📝 만든 이야기: <a href="https://velog.io/@haul/hopbox-parcel-box-between-fullscreen-spaces">velog</a></p>
 
 <p align="center">
   <a href="https://github.com/ESeungJun/hopbox/releases/latest/download/Hopbox-macOS-apple-silicon.dmg"><b>⬇ 맥용 받기 (애플 칩)</b></a> ·
@@ -33,6 +34,8 @@ HOPBOX 는 지금 보고 있는 화면으로 불러올 수 있는 상자입니�
 3. 다른 데스크톱으로 가서 단축키를 다시 누르면 같은 상자가 그 화면으로 배달됩니다.
 4. 상자를 누르면 Dock 스택처럼 부채꼴로 펼쳐집니다.
    항목을 **끌어서** 첨부하거나, **눌러서** 복사합니다.
+5. 맥에서는 마우스 없이도 됩니다. 상자가 떠 있을 때 **숫자 키**(1~9, 0)를 누르면 그 줄을 복사하고 상자가 닫힙니다.
+   **↑↓** 로 고르고 **↩** 로 복사, **⌫** 로 뺍니다.
 
 ## 기능
 
@@ -46,8 +49,16 @@ HOPBOX 는 지금 보고 있는 화면으로 불러올 수 있는 상자입니�
 - **복사한 이미지 자동 담기** — Slack·브라우저에서 복사한 이미지와 클립보드 스크린샷(맥 ⌃⇧⌘4, 윈도우 Win+Shift+S)도 담습니다.
   Finder·탐색기에서 복사한 파일, 스프레드시트 셀, 비밀번호 관리자의 값은 담지 않습니다.
 - **되돌리기** — 빼거나 비운 것은 5초 동안 되돌릴 수 있습니다.
+- **깡충** (맥) — 닫을 때는 움츠렸다가 뛰어 나가고, 다른 화면에 있던 상자를 부르면 비스듬히 뛰어 들어옵니다.
+  메뉴에서 "화면을 옮기면 따라오기" 를 켜면 데스크톱을 옮길 때 상자가 접힌 채로 따라옵니다.
+  macOS 의 "동작 줄이기" 를 켜 두면 튀는 연출 대신 짧은 페이드와 테두리 강조로 바뀝니다.
+- **고정과 보관 기한** (맥) — 우클릭 "맨 위에 고정" 으로 자주 쓰는 것을 맨 위에 둡니다.
+  메뉴의 "자동으로 담긴 것 보관" 에서 1일·7일을 고르면 스크린샷처럼 자동으로 담긴 것만 그 뒤에 정리합니다(기본은 계속 보관).
+  직접 담은 것과 고정한 것은 정리하지 않습니다.
+- **보낸 것 표시** (맥) — 끌어내 다른 앱이 받으면 "보냄" 도장이 찍힙니다. 메뉴에서 "꺼낸 것은 상자에서 빼기" 를 켤 수 있습니다.
+  목록에서는 ⌘클릭·⇧클릭으로 여러 개를 골라 한 번에 끌어낼 수 있습니다.
 - **기억하기** — 앱을 다시 켜도 담긴 것이 남아 있습니다. 파일은 복사하지 않고 원본을 가리킵니다.
-- **알아서 최신 버전으로** — 켤 때와 하루에 한 번 새 릴리스를 확인하고, 알림을 누르면 받아서 설치한 뒤 다시 켭니다.
+- **알아서 최신 버전으로** — 켤 때와 하루에 한 번 새 릴리스를 확인합니다. 맥은 쓰던 화면을 가리지 않도록 메뉴 막대 아이콘의 점과 메뉴 항목으로 알리고, 메뉴에서 누르면 받아서 설치한 뒤 다시 켭니다.
   맥은 같은 Developer ID 로 서명하고 Apple 공증을 받은 것만, 윈도우는 GitHub 가 알려 준 SHA-256 과 맞는 설치 파일만 설치합니다.
   지금 버전은 메뉴에서 볼 수 있습니다.
 
@@ -73,7 +84,9 @@ macOS 단축키와 겹치는 조합도 받지 않습니다. 윈도우는 윈도�
 dmg 를 열고 `택배상자.app` 을 응용 프로그램 폴더로 끌어 넣으면 끝입니다.
 Developer ID 로 서명하고 Apple 공증을 받아서 경고 없이 열립니다.
 
-macOS 13 이상에서 동작합니다. 따로 허용할 권한은 없습니다. 전역 단축키도 손쉬운 사용 권한 없이 동작합니다.
+macOS 13 이상에서 동작합니다. 전역 단축키는 손쉬운 사용 권한 없이 동작합니다.
+스크린샷 자동 담기는 스크린샷 저장 폴더(기본은 데스크톱)를 읽기 때문에 macOS 가 폴더 접근을 허용할지 물을 수 있습니다.
+거부하면 메뉴에 "폴더 접근 허용 필요" 로 표시되고, 그 아래 항목으로 시스템 설정을 열 수 있습니다. 쓰지 않으려면 메뉴에서 끄면 됩니다.
 
 ### 윈도우
 
@@ -114,11 +127,16 @@ Claude Code 와 함께 만들었습니다.
 
 ```bash
 swift build             # 디버그 빌드
+swift test              # 시험 (XCTest 가 든 Xcode 필요. xcode-select 가 Command Line Tools 를 가리키면
+                        #  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test)
 ./build.sh              # build/택배상자.app
 ./build.sh install      # ~/Applications 에 설치하고 실행
 ./build.sh release      # 애플 칩·인텔 칩용 dmg (build/release)
                         # SIGN_IDENTITY·NOTARY_PROFILE 을 주면 서명·공증까지
 ```
+
+맥 빌드와 시험은 GitHub Actions(`.github/workflows/macos.yml`)에서도 돕니다.
+디버그 빌드를 직접 실행할 때 `HOPBOX_DATA_DIR=<폴더>` 를 주면 실제 보관 폴더 대신 그 폴더를 씁니다.
 
 윈도우판은 .NET 8 SDK 로 빌드합니다. 설치 파일은 GitHub Actions(`.github/workflows/windows.yml`)가 만듭니다.
 
@@ -134,7 +152,8 @@ dotnet run --project windows/Hopbox.Windows   # 실행
 |---|---|
 | `Sources/Hopbox/AppDelegate.swift` | 메뉴 막대, 전역 단축키, 설정 |
 | `Sources/Hopbox/ShelfPanel.swift` | 떠 있는 패널: 배달 연출, 열기·닫기, 키보드, 드롭 받기 |
-| `Sources/Hopbox/BoxLayout.swift` | 상태별 창 크기와 아이콘 자리 (상자가 튀지 않게) |
+| `Sources/HopboxCore/` | 화면을 모르는 규칙과 저장: 항목(`ShelfItem`), 목록 파일·보관 폴더(`ShelfStorage`), 창 크기와 아이콘 자리(`BoxLayout`), 버전 비교·보관 기한·키보드 판정(`Rules`) |
+| `Tests/` | 맥판 시험 (`HopboxCoreTests`, `HopboxTests`) |
 | `Sources/Hopbox/BoxView.swift` | 상자 아이콘과 애니메이션, 알림 |
 | `Sources/Hopbox/FanView.swift` | Dock 스택식 부채꼴 |
 | `Sources/Hopbox/ShelfView.swift` | 전체 목록 |
@@ -143,6 +162,7 @@ dotnet run --project windows/Hopbox.Windows   # 실행
 | `Sources/Hopbox/Shortcut.swift` | 단축키: 저장값, 표시 이름, 바꾸기 창 |
 | `Sources/Hopbox/DragSource.swift` | 복사로만 끌어내기, 클릭과 끌기 구분 |
 | `Sources/Hopbox/Thumbnails.swift` | QuickLook 미리보기 |
+| `Sources/Hopbox/Theme.swift` | 상자 그림에서 뽑은 색, 동작 줄이기 설정, 상자 그림 불러오기 |
 | `Sources/Hopbox/Log.swift` | 주고받은 형식 이름 기록 (내용은 남기지 않음) |
 | `Sources/Hopbox/Updater.swift` | GitHub 릴리스 확인, 서명·공증 확인 후 앱 바꿔 끼우고 다시 켜기 |
 | `windows/Hopbox.Windows/` | 윈도우판: 알림 영역(`Tray`), 단축키(`HotKey`·`ShortcutWindow`), 상자 창(`BoxWindow`·`FanView`·`ListCard`), 상자 내용(`ShelfStore`), 클립보드 주고받기(`Transfer`), 자동 담기(`Watchers`), 업데이트(`Updater`) |
